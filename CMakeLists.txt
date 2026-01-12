@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25...3.30)
 # 1. SILENCE DEPRECATION WARNINGS (Must be before project())
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
-project(loom-log LANGUAGES CXX)
+project(loomlog LANGUAGES CXX)
 
 # 2. GLOBAL SETTINGS
 set(CMAKE_CXX_STANDARD 20)
@@ -34,35 +34,36 @@ file(GLOB_RECURSE LOOM_LOG_SOURCES
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
-add_library(loom-log ${LOOM_LOG_SOURCES})
+add_library(loomlog STATIC ${LOOM_LOG_SOURCES})
+add_library(loomlog::loomlog ALIAS loomlog)
 
 # 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
 if(ipo_supported)
-    set_property(TARGET loom-log PROPERTY 
+    set_property(TARGET loomlog PROPERTY 
         INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
         INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
     )
 endif()
 
-target_compile_options(loom-log PRIVATE
+target_compile_options(loomlog PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /MP>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
 # 8. PLATFORM SPECIFIC
 if(UNIX)
-    target_link_options(loom-log PRIVATE 
+    target_link_options(loomlog PRIVATE 
         "$<$<CONFIG:Release>:-s>"
         -static-libstdc++ 
         -static-libgcc
     )
 else()
     # Apply MSVC Link-Time Code Generation (The Windows version of LTO)
-    target_link_options(loom-log PRIVATE $<$<CONFIG:Release>:/LTCG>)
+    target_link_options(loomlog PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 
 # 9. PRECOMPILED HEADERS
-target_precompile_headers(loom-log PRIVATE
+target_precompile_headers(loomlog PRIVATE
     <format>
     <string>
     <vector>
@@ -78,7 +79,7 @@ target_precompile_headers(loom-log PRIVATE
 )
 
 # 10. INCLUDES & LINKING
-target_include_directories(loom-log 
+target_include_directories(loomlog 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -86,7 +87,7 @@ target_include_directories(loom-log
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(loom-log PRIVATE
+target_link_libraries(loomlog PRIVATE
     spdlog::spdlog
     httplib::httplib
 )
