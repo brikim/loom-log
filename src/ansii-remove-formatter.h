@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace loom_log
+namespace loomlog
 {
    // Class used to strip the ansii character strings from a log message
    class AnsiiRemoveFormatter : public spdlog::formatter

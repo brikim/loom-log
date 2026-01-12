@@ -1,12 +1,12 @@
 #pragma once
 
-#include "loom-log-types.h"
+#include "loomlog/log-types.h"
 
 #include <format>
 #include <regex>
 #include <string>
 
-namespace loom_log
+namespace loomlog
 {
    template <typename T>
    inline std::string GetTag(std::string_view tag, const T& value)

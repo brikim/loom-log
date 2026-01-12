@@ -1,9 +1,9 @@
 #include "ansii-remove-formatter.h"
 
 #include "internal-types.h"
-#include "log-utils.h"
+#include "loomlog/log-utils.h"
 
-namespace loom_log
+namespace loomlog
 {
    AnsiiRemoveFormatter::AnsiiRemoveFormatter()
    {

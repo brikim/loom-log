@@ -1,12 +1,12 @@
 #pragma once
 
-#include "loom-log-types.h"
+#include "loomlog/log-types.h"
 
 #include <format>
 #include <memory>
 #include <string_view>
 
-namespace loom_log
+namespace loomlog
 {
    enum class Level
    {

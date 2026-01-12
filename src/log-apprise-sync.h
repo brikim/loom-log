@@ -1,6 +1,6 @@
 #pragma once
 
-#include "log-utils.h"
+#include "loomlog/log-utils.h"
 
 #include <httplib.h>
 #include <spdlog/sinks/base_sink.h>
@@ -9,7 +9,7 @@
 #include <regex>
 #include <string>
 
-namespace loom_log
+namespace loomlog
 {
    template<typename Mutex>
    class apprise_sink : public spdlog::sinks::base_sink<Mutex>

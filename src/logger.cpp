@@ -1,4 +1,4 @@
-#include "logger.h"
+#include "loomlog/logger.h"
 
 #include "ansii-formatter.h"
 #include "ansii-remove-formatter.h"
@@ -12,7 +12,7 @@
 #include <ranges>
 #include <regex>
 
-namespace loom_log
+namespace loomlog
 {
    namespace
    {

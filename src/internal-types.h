@@ -1,11 +1,11 @@
 #pragma once
 
-#include "loom-log-types.h"
+#include "loomlog/log-types.h"
 
 #include <format>
 #include <string>
 
-namespace loom_log
+namespace loomlog
 {
    // Log pattern to be used by the logger
    inline const std::string DEFAULT_PATTERN{"%m/%d/%Y %T [%l] %v"};

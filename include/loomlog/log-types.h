@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace loom_log
+namespace loomlog
 {
    inline constexpr const std::string_view ANSI_CODE_START{"\33[38;5;"};
    inline constexpr const std::string_view ANSI_CODE_END{"m"};

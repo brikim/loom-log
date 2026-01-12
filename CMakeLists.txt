@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
 # 3. IPO/LTO SUPPORT CHECK
 include(CheckIPOSupported)
@@ -26,16 +28,22 @@ set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" 
 
 FetchContent_MakeAvailable(spdlog  httplib)
 
-# 5. SOURCE DISCOVERY
-file(GLOB_RECURSE LOOM_LOG_SOURCES
-    "include/*.h"
-    "src/*.cpp"
-    "src/*.h"
+set(LOOMLOG_SOURCES
+    include/loomlog/logger.h
+    include/loomlog/log-types.h
+    include/loomlog/log-utils.h
+    src/ansii-formatter.cpp
+    src/ansii-formatter.h
+    src/ansii-remove-formatter.cpp
+    src/ansii-remove-formatter.h
+    src/internal-types.h
+    src/log-apprise-sync.h
+    src/Logger.cpp
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
-add_library(loomlog STATIC ${LOOM_LOG_SOURCES})
-add_library(loomlog::loomlog ALIAS loomlog)
+add_library(loomlog STATIC ${LOOMLOG_SOURCES})
+add_library(loom::log ALIAS loomlog)
 
 # 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
 if(ipo_supported)
@@ -66,12 +74,10 @@ endif()
 target_precompile_headers(loomlog PRIVATE
     <format>
     <string>
+    <string_view>
     <vector>
     <memory>
     <regex>
-    <chrono>
-    <iostream>
-    <string_view>
 
     # Third-Party
     <spdlog/spdlog.h>
