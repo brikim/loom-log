@@ -36,7 +36,7 @@ namespace loomlog
 
    struct Logger::Impl
    {
-      std::unique_ptr<spdlog::logger> logger;
+      std::shared_ptr<spdlog::logger> logger;
    };
 
    Logger::Logger()
@@ -62,7 +62,7 @@ namespace loomlog
          fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
       }
 
-      pimpl_->logger = std::make_unique<spdlog::async_logger>("loomis",
+      pimpl_->logger = std::make_shared<spdlog::async_logger>("loomis",
                                                               sinks.begin(),
                                                               sinks.end(),
                                                               spdlog::thread_pool(),
