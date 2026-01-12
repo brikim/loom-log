@@ -57,7 +57,7 @@ namespace loomlog
 
    private:
       Logger();
-      virtual ~Logger() = default;
+      virtual ~Logger();
 
       void LogInternal(Level level, std::string_view msg);
       bool ShouldLog(Level level);

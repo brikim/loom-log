@@ -74,6 +74,8 @@ namespace loomlog
 #endif
    }
 
+   Logger::~Logger() = default;
+
    void Logger::InitApprise(const AppriseLoggingConfig& config)
    {
       if (config.enabled)
