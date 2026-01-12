@@ -1,6 +1,6 @@
 #pragma once
 
-#include "loomlog/log-utils.h"
+#include "warp/utils.h"
 
 #include <httplib.h>
 #include <spdlog/sinks/base_sink.h>
@@ -9,7 +9,7 @@
 #include <regex>
 #include <string>
 
-namespace loomlog
+namespace warp
 {
    template<typename Mutex>
    class apprise_sink : public spdlog::sinks::base_sink<Mutex>
@@ -28,7 +28,7 @@ namespace loomlog
          spdlog::memory_buf_t formatted;
          spdlog::sinks::base_sink<Mutex>::formatter_->format(msg, formatted);
 
-         std::string message = StripAsciiCharacters(fmt::to_string(formatted));
+         auto message = StripAnsiiCharacters(fmt::to_string(formatted));
 
          size_t pos = 0;
          while ((pos = message.find('"', pos)) != std::string::npos)
@@ -55,5 +55,4 @@ namespace loomlog
    };
 
    using apprise_sink_mt = apprise_sink<std::mutex>;
-
-} // namespace loomis
+}

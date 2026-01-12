@@ -1,12 +1,12 @@
 #pragma once
 
-#include "loomlog/log-types.h"
+#include "warp/log-types.h"
 
 #include <format>
 #include <memory>
 #include <string_view>
 
-namespace loomlog
+namespace warp
 {
    enum class Level
    {
@@ -23,6 +23,7 @@ namespace loomlog
          return instance;
       }
 
+      void InitFileLogging(std::string_view path, std::string_view filename);
       void InitApprise(const AppriseLoggingConfig& config);
 
       template<typename... Args>

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25...3.30)
 # 1. SILENCE DEPRECATION WARNINGS (Must be before project())
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
-project(loomlog LANGUAGES CXX)
+project(warp LANGUAGES CXX)
 
 # 2. GLOBAL SETTINGS
 set(CMAKE_CXX_STANDARD 20)
@@ -28,50 +28,52 @@ set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" 
 
 FetchContent_MakeAvailable(spdlog  httplib)
 
-set(LOOMLOG_SOURCES
-    include/loomlog/logger.h
-    include/loomlog/log-types.h
-    include/loomlog/log-utils.h
-    src/ansii-formatter.cpp
-    src/ansii-formatter.h
-    src/ansii-remove-formatter.cpp
-    src/ansii-remove-formatter.h
-    src/internal-types.h
-    src/log-apprise-sync.h
-    src/Logger.cpp
+set(WARP_SOURCES
+    include/warp/log.h
+    include/warp/logger.h
+    include/warp/log-types.h
+    include/warp/log-utils.h
+    include/warp/utils.h
+    src/logger/ansii-formatter.cpp
+    src/logger/ansii-formatter.h
+    src/logger/ansii-remove-formatter.cpp
+    src/logger/ansii-remove-formatter.h
+    src/logger/internal-types.h
+    src/logger/log-apprise-sync.h
+    src/logger/logger.cpp
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
-add_library(loomlog STATIC ${LOOMLOG_SOURCES})
-add_library(loom::log ALIAS loomlog)
+add_library(warp STATIC ${WARP_SOURCES})
+add_library(warp::warp ALIAS warp)
 
 # 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
 if(ipo_supported)
-    set_property(TARGET loomlog PROPERTY 
+    set_property(TARGET warp PROPERTY 
         INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
         INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
     )
 endif()
 
-target_compile_options(loomlog PRIVATE
+target_compile_options(warp PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/utf-8 /MP>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
 # 8. PLATFORM SPECIFIC
 if(UNIX)
-    target_link_options(loomlog PRIVATE 
+    target_link_options(warp PRIVATE 
         "$<$<CONFIG:Release>:-s>"
         -static-libstdc++ 
         -static-libgcc
     )
 else()
     # Apply MSVC Link-Time Code Generation (The Windows version of LTO)
-    target_link_options(loomlog PRIVATE $<$<CONFIG:Release>:/LTCG>)
+    target_link_options(warp PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 
 # 9. PRECOMPILED HEADERS
-target_precompile_headers(loomlog PRIVATE
+target_precompile_headers(warp PRIVATE
     <format>
     <string>
     <string_view>
@@ -85,7 +87,7 @@ target_precompile_headers(loomlog PRIVATE
 )
 
 # 10. INCLUDES & LINKING
-target_include_directories(loomlog 
+target_include_directories(warp 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -93,7 +95,7 @@ target_include_directories(loomlog
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(loomlog PRIVATE
+target_link_libraries(warp PRIVATE
     spdlog::spdlog
     httplib::httplib
 )

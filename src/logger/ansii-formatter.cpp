@@ -2,7 +2,7 @@
 
 #include "internal-types.h"
 
-namespace loomlog
+namespace warp
 {
    AnsiiFormatter::AnsiiFormatter()
    {

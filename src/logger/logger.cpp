@@ -1,4 +1,4 @@
-#include "loomlog/logger.h"
+#include "warp/logger.h"
 
 #include "ansii-formatter.h"
 #include "ansii-remove-formatter.h"
@@ -9,10 +9,9 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include <ranges>
-#include <regex>
+#include <string>
 
-namespace loomlog
+namespace warp
 {
    namespace
    {
@@ -49,20 +48,7 @@ namespace loomlog
       auto& consoleSink{sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>())};
       consoleSink->set_formatter(std::make_unique<AnsiiFormatter>());
 
-      // If the log path is defined create a rotating file logger
-      if (const auto* logPath = std::getenv("LOG_PATH");
-          logPath != nullptr)
-      {
-         std::string logPathFilename = logPath;
-         logPathFilename.append("/loomis.log");
-
-         constexpr size_t max_size{1048576 * 5};
-         constexpr size_t max_files{5};
-         auto& fileSink{sinks.emplace_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPathFilename, max_size, max_files))};
-         fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
-      }
-
-      pimpl_->logger = std::make_shared<spdlog::async_logger>("loomis",
+      pimpl_->logger = std::make_shared<spdlog::async_logger>("warp-logger",
                                                               sinks.begin(),
                                                               sinks.end(),
                                                               spdlog::thread_pool(),
@@ -75,6 +61,19 @@ namespace loomlog
    }
 
    Logger::~Logger() = default;
+
+   void Logger::InitFileLogging(std::string_view path, std::string_view filename)
+   {
+      std::string logPathFilename = path.data();
+      logPathFilename += filename;
+
+      constexpr size_t max_size{1048576 * 5};
+      constexpr size_t max_files{5};
+      auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPathFilename, max_size, max_files);
+      fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
+
+      pimpl_->logger->sinks().push_back(fileSink);
+   }
 
    void Logger::InitApprise(const AppriseLoggingConfig& config)
    {

@@ -3,7 +3,7 @@
 #include <spdlog/formatter.h>
 #include <spdlog/pattern_formatter.h>
 
-namespace loomlog
+namespace warp
 {
    // Class used to strip the ansii character strings from a log message
    class AnsiiFormatter : public spdlog::formatter
