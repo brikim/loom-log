@@ -9,6 +9,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include <filesystem>
 #include <string>
 
 namespace warp
@@ -64,12 +65,15 @@ namespace warp
 
    void Logger::InitFileLogging(std::string_view path, std::string_view filename)
    {
-      std::string logPathFilename = path.data();
-      logPathFilename += filename;
+      std::filesystem::path p(path);
+      p /= filename;
+
+      std::error_code ec;
+      std::filesystem::create_directories(p.parent_path(), ec);
 
       constexpr size_t max_size{1048576 * 5};
       constexpr size_t max_files{5};
-      auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logPathFilename, max_size, max_files);
+      auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(p.string(), max_size, max_files);
       fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
 
       pimpl_->logger->sinks().push_back(fileSink);

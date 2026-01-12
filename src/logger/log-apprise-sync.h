@@ -6,7 +6,6 @@
 #include <spdlog/sinks/base_sink.h>
 
 #include <mutex>
-#include <regex>
 #include <string>
 
 namespace warp
