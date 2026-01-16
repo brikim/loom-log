@@ -41,7 +41,6 @@ namespace warp
 
    struct AppriseLoggingConfig
    {
-      bool enabled{false};
       std::string url;
       std::string key;
       std::string message_title;
@@ -49,7 +48,6 @@ namespace warp
 
    struct GotifyLoggingConfig
    {
-      bool enabled{false};
       std::string url;
       std::string key;
       std::string message_title;

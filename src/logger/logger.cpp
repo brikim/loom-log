@@ -82,34 +82,28 @@ namespace warp
 
    void Logger::InitApprise(const AppriseLoggingConfig& config)
    {
-      if (config.enabled)
-      {
-         auto app_sink = std::make_shared<apprise_sink_mt>(config);
+      auto app_sink = std::make_shared<apprise_sink_mt>(config);
 
-         // Only notify on Warnings and Errors
-         app_sink->set_level(spdlog::level::warn);
+      // Only notify on Warnings and Errors
+      app_sink->set_level(spdlog::level::warn);
 
-         // Clean pattern for mobile/email notifications (No colors)
-         app_sink->set_pattern("[%l] %v");
+      // Clean pattern for mobile/email notifications (No colors)
+      app_sink->set_pattern("[%l] %v");
 
-         pimpl_->logger->sinks().push_back(app_sink);
-      }
+      pimpl_->logger->sinks().push_back(app_sink);
    }
 
    void Logger::InitGotify(const GotifyLoggingConfig& config)
    {
-      if (config.enabled)
-      {
-         auto app_sink = std::make_shared<gotify_sink_mt>(config);
+      auto app_sink = std::make_shared<gotify_sink_mt>(config);
 
-         // Only notify on Warnings and Errors
-         app_sink->set_level(spdlog::level::warn);
+      // Only notify on Warnings and Errors
+      app_sink->set_level(spdlog::level::warn);
 
-         // Clean pattern for mobile/email notifications (No colors)
-         app_sink->set_pattern("[%l] %v");
+      // Clean pattern for mobile/email notifications (No colors)
+      app_sink->set_pattern("[%l] %v");
 
-         pimpl_->logger->sinks().push_back(app_sink);
-      }
+      pimpl_->logger->sinks().push_back(app_sink);
    }
 
    void Logger::LogInternal(Level level, std::string_view msg)
