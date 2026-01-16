@@ -11,13 +11,14 @@
 namespace warp
 {
    template<typename Mutex>
-   class LogAppriseSink : public spdlog::sinks::base_sink<Mutex>
+   class LogGotifySink : public spdlog::sinks::base_sink<Mutex>
    {
    public:
-      explicit LogAppriseSink(const AppriseLoggingConfig& config)
+      explicit LogGotifySink(const GotifyLoggingConfig& config)
          : client_(config.url)
-         , key_(config.key)
          , title_(config.message_title)
+         , priority_{config.priority}
+         , headers_{{"X-Gotify-Key", config.key}}
       {
       }
 
@@ -38,9 +39,10 @@ namespace warp
 
          httplib::Params params{
             {"title", title_},
-            {"body", message}
+            {"message", message},
+            {"priority", std::to_string(priority_)}
          };
-         auto res = client_.Post(std::format("/notify/{}", key_), params);
+         auto res = client_.Post("/message", headers_, params);
       }
 
       void flush_() override
@@ -49,9 +51,10 @@ namespace warp
 
    private:
       httplib::Client client_;
-      std::string key_;
       std::string title_;
+      int32_t priority_{0};
+      httplib::Headers headers_;
    };
 
-   using apprise_sink_mt = LogAppriseSink<std::mutex>;
+   using gotify_sink_mt = LogGotifySink<std::mutex>;
 }

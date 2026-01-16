@@ -18,6 +18,12 @@ namespace warp::log
       Logger::Instance().InitApprise(config);
    }
 
+   // Init Gotify logging
+   inline void InitGotify(const GotifyLoggingConfig& config)
+   {
+      Logger::Instance().InitGotify(config);
+   }
+
    template<typename... Args>
    inline void Trace(std::format_string<Args...> fmt, Args &&...args)
    {

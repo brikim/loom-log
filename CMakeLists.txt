@@ -40,6 +40,7 @@ set(WARP_SOURCES
     src/logger/ansii-remove-formatter.h
     src/logger/internal-types.h
     src/logger/log-apprise-sync.h
+    src/logger/log-gotify-sync.h
     src/logger/logger.cpp
 )
 

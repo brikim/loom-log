@@ -25,6 +25,7 @@ namespace warp
 
       void InitFileLogging(std::string_view path, std::string_view filename);
       void InitApprise(const AppriseLoggingConfig& config);
+      void InitGotify(const GotifyLoggingConfig& config);
 
       template<typename... Args>
       void Trace(std::format_string<Args...> fmt, Args &&...args);

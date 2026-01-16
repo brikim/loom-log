@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -44,5 +45,14 @@ namespace warp
       std::string url;
       std::string key;
       std::string message_title;
+   };
+
+   struct GotifyLoggingConfig
+   {
+      bool enabled{false};
+      std::string url;
+      std::string key;
+      std::string message_title;
+      int32_t priority{0};
    };
 }
