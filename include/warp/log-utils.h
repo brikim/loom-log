@@ -12,7 +12,7 @@ namespace warp
    {
       // std::format will handle converting the value to a string 
       // regardless of whether it is a string, int, or bool.
-      return std::format("{}{}{}={}", ANSI_CODE_TAG, tag, ANSI_CODE_LOG, value);
+      return std::format("{}{}{}[{}]", ANSI_CODE_TAG, tag, ANSI_CODE_LOG, value);
    }
 
    inline std::string GetAnsiText(std::string_view text, std::string_view ansiCode)
