@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <format>
 #include <regex>
 #include <string>
@@ -39,5 +40,34 @@ namespace warp
       std::transform(data.begin(), data.end(), data.begin(),
          [](unsigned char c) { return std::tolower(c); });
       return data;
+   }
+
+   inline std::string GetDisplayFolder(std::string_view path)
+   {
+      namespace fs = std::filesystem;
+      fs::path p(path);
+
+      // If path ends in a slash, some implementations return an empty filename.
+      // We want the actual last directory component.
+      if (p.has_relative_path() && p.filename().empty())
+      {
+         p = p.parent_path();
+      }
+
+      auto lastElement = p.filename();
+      auto lastStr = lastElement.string();
+
+      // Check for "Season" in the last folder name
+      // (Matches "Season 01", "Specials", etc. if they contain "Season")
+      if (lastStr.find("Season") != std::string::npos)
+      {
+         if (p.has_parent_path())
+         {
+            // Returns "ShowName/Season 01"
+            return (p.parent_path().filename() / lastElement).generic_string();
+         }
+      }
+
+      return lastStr.empty() ? std::string(path) : lastStr;
    }
 }

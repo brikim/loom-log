@@ -2,8 +2,13 @@
 
 #include "warp/log-types.h"
 
+#include <concepts>
 #include <format>
 #include <string>
+#include <type_traits>
+
+template <typename T>
+concept arithmetic = std::is_arithmetic_v<T>;
 
 namespace warp
 {
@@ -13,6 +18,16 @@ namespace warp
       // std::format will handle converting the value to a string 
       // regardless of whether it is a string, int, or bool.
       return std::format("{}{}{}[{}]", ANSI_CODE_TAG, tag, ANSI_CODE_LOG, value);
+   }
+
+   template <arithmetic T>
+   inline std::string GetTag(std::string_view tag, const T& value, std::string_view fmt)
+   {
+      // Construct the dynamic format string: e.g., "{}{}{}[{:.2f}]"
+      std::string dynamic_fmt = std::format("{}{}{}[{{:{}}}]",
+                                            ANSI_CODE_TAG, tag, ANSI_CODE_LOG, fmt);
+
+      return std::vformat(dynamic_fmt, std::make_format_args());
    }
 
    inline std::string GetAnsiText(std::string_view text, std::string_view ansiCode)
