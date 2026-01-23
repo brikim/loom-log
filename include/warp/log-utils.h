@@ -27,7 +27,7 @@ namespace warp
       std::string dynamic_fmt = std::format("{}{}{}[{{:{}}}]",
                                             ANSI_CODE_TAG, tag, ANSI_CODE_LOG, fmt);
 
-      return std::vformat(dynamic_fmt, std::make_format_args());
+      return std::vformat(dynamic_fmt, std::make_format_args(value));
    }
 
    inline std::string GetAnsiText(std::string_view text, std::string_view ansiCode)

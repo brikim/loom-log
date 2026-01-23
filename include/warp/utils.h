@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <format>
 #include <regex>
 #include <string>
+#include <string_view>
 
 namespace warp
 {
@@ -42,32 +44,54 @@ namespace warp
       return data;
    }
 
+   template <typename StringT>
+   inline bool ContainsSeason(const StringT& str)
+   {
+      if (str.size() < 6) return false;
+
+      auto isSeasonMatch = [](auto ch, char target) {
+         return (ch == target) || (ch == (target - 32));
+      };
+      constexpr std::string_view target = "season";
+      auto it = std::search(str.begin(), str.end(), target.begin(), target.end(),
+          [&isSeasonMatch](auto a, char b) {
+         return isSeasonMatch(a, b);
+      });
+
+      return it != str.end();
+   }
+
    inline std::string GetDisplayFolder(std::string_view path)
    {
       namespace fs = std::filesystem;
+      if (path.empty()) return "";
+
       fs::path p(path);
 
-      // If path ends in a slash, some implementations return an empty filename.
-      // We want the actual last directory component.
       if (p.has_relative_path() && p.filename().empty())
       {
          p = p.parent_path();
       }
 
-      auto lastElement = p.filename();
-      auto lastStr = lastElement.string();
+      const bool hasFile = p.has_extension();
+      const fs::path folderPath = hasFile ? p.parent_path() : p;
 
-      // Check for "Season" in the last folder name
-      // (Matches "Season 01", "Specials", etc. if they contain "Season")
-      if (lastStr.find("Season") != std::string::npos)
+      fs::path result;
+      if (ContainsSeason(folderPath.filename().native()) && folderPath.has_parent_path())
       {
-         if (p.has_parent_path())
-         {
-            // Returns "ShowName/Season 01"
-            return (p.parent_path().filename() / lastElement).generic_string();
-         }
+         result = folderPath.parent_path().filename() / folderPath.filename();
+         if (hasFile) result /= p.filename();
+      }
+      else if (hasFile)
+      {
+         result = folderPath.filename() / p.filename();
+      }
+      else
+      {
+         result = folderPath.filename();
       }
 
-      return lastStr.empty() ? std::string(path) : lastStr;
+      std::string out = result.generic_string();
+      return out.empty() ? std::string(path) : out;
    }
 }
