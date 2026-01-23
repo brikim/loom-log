@@ -24,7 +24,7 @@ namespace warp
       }
       else
       {
-         return newServer.empty()
+         return newServerInstance.empty()
             ? std::format("{},{}", currentServerList, newServer)
             : std::format("{},{}({})", currentServerList, newServer, newServerInstance);
       }
