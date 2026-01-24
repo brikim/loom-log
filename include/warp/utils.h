@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
+#include <cwctype>
 #include <filesystem>
 #include <format>
 #include <regex>
@@ -37,10 +39,19 @@ namespace warp
       return std::regex_replace(data, ansii, "");
    }
 
-   inline std::string ToLower(std::string data)
+   template <typename CharT>
+   inline std::basic_string<CharT> ToLower(std::basic_string<CharT> data)
    {
-      std::transform(data.begin(), data.end(), data.begin(),
-         [](unsigned char c) { return std::tolower(c); });
+      std::transform(data.begin(), data.end(), data.begin(), [](auto c) {
+         if constexpr (std::is_same_v<CharT, wchar_t>)
+         {
+            return static_cast<wchar_t>(std::towlower(static_cast<std::wint_t>(c)));
+         }
+         else
+         {
+            return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+         }
+      });
       return data;
    }
 
