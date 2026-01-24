@@ -21,7 +21,9 @@ namespace warp
       PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~PlexApi() = default;
 
-      [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;
+      void EnableExtraCaching();
+
+      [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
       // Returns true if the server is reachable and the API key is valid
       [[nodiscard]] bool GetValid() override;
@@ -49,7 +51,9 @@ namespace warp
 
       void RebuildLibraryMap();
       void RebuildCollectionMap();
-      void BuildData(bool forceRefresh);
+      void UpdateRequiredCache(bool forceRefresh);
+      void UpdateExtraCache(bool forceRefresh);
+      void RefreshCache(bool forceRefresh);
 
       // Returns the collection api path
       std::string GetCollectionKey(std::string_view library, std::string_view collection);
@@ -59,6 +63,7 @@ namespace warp
       httplib::Headers headers_;
 
       std::string mediaPath_;
+      bool enableExtraCache_{false};
 
       struct string_hash
       {

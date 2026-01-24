@@ -18,7 +18,7 @@ namespace warp
       TautulliApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~TautulliApi() = default;
 
-      [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;
+      [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
       // Returns true if the server is reachable and the API key is valid
       [[nodiscard]] bool GetValid() override;

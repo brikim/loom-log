@@ -6,14 +6,6 @@
 
 namespace warp
 {
-   struct ApiTask
-   {
-      bool service{false};
-      std::string name;
-      std::string cronExpression;
-      std::function<void()> func;
-   };
-
    struct ApiBaseData
    {
       std::string_view name;

@@ -25,7 +25,7 @@ namespace warp
       client_.set_write_timeout(readWritetimeoutSec);
    }
 
-   std::optional<std::vector<ApiTask>> ApiBase::GetTaskList()
+   std::optional<std::vector<Task>> ApiBase::GetTaskList()
    {
       return std::nullopt;
    }

@@ -24,10 +24,11 @@ include(Dependencies.cmake)
 FetchContent_Declare(spdlog  GIT_REPOSITORY ${SPDLOG_REPO}  GIT_TAG ${SPDLOG_VERSION})
 FetchContent_Declare(glaze   GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
 FetchContent_Declare(httplib GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
+FetchContent_Declare(croncpp GIT_REPOSITORY ${CRONCPP_REPO} GIT_TAG ${CRONCPP_VERSION})
 
 set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-FetchContent_MakeAvailable(spdlog glaze httplib)
+FetchContent_MakeAvailable(croncpp glaze httplib spdlog)
 
 set(WARP_SOURCES
     include/warp/api/api-base.h
@@ -44,6 +45,7 @@ set(WARP_SOURCES
     include/warp/log/logger.h
     include/warp/log/log-types.h
     include/warp/log/log-utils.h
+    include/warp/scheduler/cron-scheduler.h
     include/warp/base.h
     include/warp/types.h
     include/warp/utils.h
@@ -65,6 +67,7 @@ set(WARP_SOURCES
     src/logger/log-apprise-sync.h
     src/logger/log-gotify-sync.h
     src/logger/logger.cpp
+    src/scheduler/cron-scheduler.cpp
     src/base.cpp
 )
 
@@ -107,6 +110,7 @@ target_precompile_headers(warp PRIVATE
     <regex>
 
     # Third-Party
+    <croncpp.h>
     <spdlog/spdlog.h>
     <glaze/glaze.hpp>
     <httplib.h>
@@ -122,6 +126,7 @@ target_include_directories(warp
 )
 
 target_link_libraries(warp PRIVATE
+    croncpp::croncpp
     spdlog::spdlog
     glaze::glaze
     httplib::httplib

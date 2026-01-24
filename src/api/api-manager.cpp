@@ -42,7 +42,20 @@ namespace warp
       }
    }
 
-   void ApiManager::GetTasks(std::vector<ApiTask>& tasks)
+   void ApiManager::EnableExtraCaching()
+   {
+      for (auto& plexApi : plexApis_)
+      {
+         plexApi->EnableExtraCaching();
+      }
+
+      for (auto& embyApi : embyApis_)
+      {
+         embyApi->EnableExtraCaching();
+      }
+   }
+
+   void ApiManager::GetTasks(std::vector<Task>& tasks)
    {
       InitializeTasks(plexApis_, tasks);
       InitializeTasks(tautulliApis_, tasks);

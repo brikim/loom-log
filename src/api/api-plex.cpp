@@ -52,22 +52,28 @@ namespace warp
         {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
-      BuildData(true);
+      UpdateRequiredCache(true);
    }
 
-   std::optional<std::vector<ApiTask>> PlexApi::GetTaskList()
+   void PlexApi::EnableExtraCaching()
    {
-      std::vector<ApiTask> tasks;
+      enableExtraCache_ = true;
+      UpdateExtraCache(true);
+   }
+
+   std::optional<std::vector<Task>> PlexApi::GetTaskList()
+   {
+      std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
       quickCheck.name = std::format("PlexApi({}) - Data Quick Check", GetName());
       quickCheck.cronExpression = "45 */5 * * * *";
-      quickCheck.func = [this]() {this->BuildData(false); };
+      quickCheck.func = [this]() {this->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
       fullUpdate.name = std::format("PlexApi({}) - Data Full Update", GetName());
       fullUpdate.cronExpression = "0 48 3 * * *";
-      fullUpdate.func = [this]() {this->BuildData(true); };
+      fullUpdate.func = [this]() {this->RefreshCache(true); };
 
       return tasks;
    }
@@ -244,6 +250,12 @@ namespace warp
 
    std::string PlexApi::GetCollectionKey(std::string_view library, std::string_view collection)
    {
+      if (!enableExtraCache_)
+      {
+         LogWarning("{} called but extra cache not enabled", __func__);
+         return {};
+      }
+
       std::shared_lock lock(dataLock_);
 
       auto libraryId = GetLibraryId(library);
@@ -427,19 +439,31 @@ namespace warp
       }
    }
 
-   void PlexApi::BuildData(bool forceRefresh)
+   void PlexApi::UpdateRequiredCache(bool forceRefresh)
    {
       bool refreshLibraries = false;
+      {
+         std::shared_lock lock(dataLock_);
+         if (forceRefresh || libraries_.empty()) refreshLibraries = true;
+      }
+      if (refreshLibraries) RebuildLibraryMap();
+   }
+
+   void PlexApi::UpdateExtraCache(bool forceRefresh)
+   {
       bool refreshCollections = false;
 
       // Scope around the lock
       {
          std::shared_lock lock(dataLock_);
-         if (forceRefresh || libraries_.empty()) refreshLibraries = true;
          if (forceRefresh || collections_.empty()) refreshCollections = true;
       }
-
-      if (refreshLibraries) RebuildLibraryMap();
       if (refreshCollections) RebuildCollectionMap();
+   }
+
+   void PlexApi::RefreshCache(bool forceRefresh)
+   {
+      UpdateRequiredCache(forceRefresh);
+      if (enableExtraCache_) UpdateExtraCache(forceRefresh);
    }
 }

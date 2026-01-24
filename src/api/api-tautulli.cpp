@@ -42,9 +42,9 @@ namespace warp
       headers_.insert({"Accept", "application/json"});
    }
 
-   std::optional<std::vector<ApiTask>> TautulliApi::GetTaskList()
+   std::optional<std::vector<Task>> TautulliApi::GetTaskList()
    {
-      std::vector<ApiTask> tasks;
+      std::vector<Task> tasks;
 
       auto& fullUpdate = tasks.emplace_back();
       fullUpdate.name = std::format("TautulliApi({}) - Settings Update", GetName());

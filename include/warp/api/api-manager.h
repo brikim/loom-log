@@ -25,7 +25,10 @@ namespace warp
                  const std::vector<ServerConfig>& embyConfigs);
       virtual ~ApiManager() = default;
 
-      void GetTasks(std::vector<ApiTask>& tasks);
+      // Enable api caching this is needed for some functionality
+      void EnableExtraCaching();
+
+      void GetTasks(std::vector<Task>& tasks);
 
       [[nodiscard]] PlexApi* GetPlexApi(std::string_view name) const;
       [[nodiscard]] EmbyApi* GetEmbyApi(std::string_view name) const;
@@ -49,7 +52,7 @@ namespace warp
       }
 
       template <typename ContainerT>
-      void InitializeTasks(ContainerT& container, std::vector<ApiTask>& tasks)
+      void InitializeTasks(ContainerT& container, std::vector<Task>& tasks)
       {
          for (auto& api : container)
          {

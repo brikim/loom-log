@@ -54,14 +54,21 @@ namespace warp
         {"Accept", "application/json"},
         {"User-Agent", std::format("{}/{}", appName, version)}
       };
-
-      // If the service is valid run any needed tasks
-      if (GetValid()) BuildPathMap();
    }
 
-   std::optional<std::vector<ApiTask>> EmbyApi::GetTaskList()
+   void EmbyApi::EnableExtraCaching()
    {
-      std::vector<ApiTask> tasks;
+      enableExtraCache_ = true;
+
+      // If the service is valid run any needed tasks
+      if (GetValid()) RunPathMapQuickCheck();
+   }
+
+   std::optional<std::vector<Task>> EmbyApi::GetTaskList()
+   {
+      if (!enableExtraCache_) return std::nullopt;
+
+      std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
       quickCheck.name = std::format("EmbyApi({}) - Path Map Quick Check", GetName());
@@ -493,6 +500,12 @@ namespace warp
 
    std::optional<std::string> EmbyApi::GetIdFromPathMap(const std::string& path)
    {
+      if (!enableExtraCache_)
+      {
+         LogWarning("{} called but extra caching not enabled", __func__);
+         return std::nullopt;
+      }
+
       std::lock_guard lock(taskLock_);
 
       // Look up the item once

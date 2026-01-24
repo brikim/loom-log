@@ -22,7 +22,9 @@ namespace warp
       EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~EmbyApi() = default;
 
-      [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;
+      void EnableExtraCaching();
+
+      [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
       // Returns true if the server is reachable and the API key is valid
       [[nodiscard]] bool GetValid() override;
@@ -66,10 +68,10 @@ namespace warp
       std::string_view GetSearchTypeStr(EmbySearchType type);
 
       httplib::Headers headers_;
-
       std::string mediaPath_;
 
       std::string lastSyncTimestamp_;
+      bool enableExtraCache_{false};
       EmbyPathMap pathMap_;
       EmbyPathMap workingPathMap_;
 
