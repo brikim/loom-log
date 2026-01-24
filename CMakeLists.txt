@@ -33,6 +33,7 @@ set(WARP_SOURCES
     include/warp/logger.h
     include/warp/log-types.h
     include/warp/log-utils.h
+    include/warp/types.h
     include/warp/utils.h
     src/logger/ansii-formatter.cpp
     src/logger/ansii-formatter.h
