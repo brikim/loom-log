@@ -1,6 +1,6 @@
 #pragma once
 
-#include "warp/logger.h"
+#include "warp/log/logger.h"
 
 #include <string_view>
 

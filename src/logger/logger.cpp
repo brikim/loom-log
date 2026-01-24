@@ -1,4 +1,4 @@
-#include "warp/logger.h"
+#include "warp/log/logger.h"
 
 #include "ansii-formatter.h"
 #include "ansii-remove-formatter.h"
@@ -17,17 +17,17 @@ namespace warp
 {
    namespace
    {
-      spdlog::level::level_enum ToSpdLogLevel(Level level)
+      spdlog::level::level_enum ToSpdLogLevel(LogType level)
       {
          switch (level)
          {
-            case Level::TRACE:
+            case LogType::TRACE:
                return spdlog::level::trace;
-            case Level::WARN:
+            case LogType::WARN:
                return spdlog::level::warn;
-            case Level::ERR:
+            case LogType::ERR:
                return spdlog::level::err;
-            case Level::CRITICAL:
+            case LogType::CRITICAL:
                return spdlog::level::critical;
             default:
                return spdlog::level::info;
@@ -106,12 +106,12 @@ namespace warp
       pimpl_->logger->sinks().push_back(app_sink);
    }
 
-   void Logger::LogInternal(Level level, std::string_view msg)
+   void Logger::LogInternal(LogType level, std::string_view msg)
    {
       pimpl_->logger->log(ToSpdLogLevel(level), msg);
    }
 
-   bool Logger::ShouldLog(Level level)
+   bool Logger::ShouldLog(LogType level)
    {
       return pimpl_->logger->should_log(ToSpdLogLevel(level));
 

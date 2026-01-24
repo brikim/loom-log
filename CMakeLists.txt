@@ -22,19 +22,41 @@ include(FetchContent)
 include(Dependencies.cmake)
 
 FetchContent_Declare(spdlog  GIT_REPOSITORY ${SPDLOG_REPO}  GIT_TAG ${SPDLOG_VERSION})
+FetchContent_Declare(glaze   GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
 FetchContent_Declare(httplib GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
 
 set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-FetchContent_MakeAvailable(spdlog  httplib)
+FetchContent_MakeAvailable(spdlog glaze httplib)
 
 set(WARP_SOURCES
-    include/warp/log.h
-    include/warp/logger.h
-    include/warp/log-types.h
-    include/warp/log-utils.h
+    include/warp/api/api-base.h
+    include/warp/api/api-emby-types.h
+    include/warp/api/api-emby.h
+    include/warp/api/api-jellystat-types.h
+    include/warp/api/api-jellystat.h
+    include/warp/api/api-manager.h
+    include/warp/api/api-plex-types.h
+    include/warp/api/api-plex.h
+    include/warp/api/api-tautulli-types.h
+    include/warp/api/api-tautulli.h
+    include/warp/log/log.h
+    include/warp/log/logger.h
+    include/warp/log/log-types.h
+    include/warp/log/log-utils.h
+    include/warp/base.h
     include/warp/types.h
     include/warp/utils.h
+    src/api/api-base.cpp
+    src/api/api-emby-json-types.h
+    src/api/api-emby.cpp
+    src/api/api-jellystat.cpp
+    src/api/api-manager.cpp
+    src/api/api-plex-json-types.h
+    src/api/api-plex.cpp
+    src/api/api-tautulli-json-types.h
+    src/api/api-tautulli.cpp
+    src/api/api-utils.h
     src/logger/ansii-formatter.cpp
     src/logger/ansii-formatter.h
     src/logger/ansii-remove-formatter.cpp
@@ -43,6 +65,7 @@ set(WARP_SOURCES
     src/logger/log-apprise-sync.h
     src/logger/log-gotify-sync.h
     src/logger/logger.cpp
+    src/base.cpp
 )
 
 # 6. CREATE THE TARGET (Only call this ONCE)
@@ -85,6 +108,7 @@ target_precompile_headers(warp PRIVATE
 
     # Third-Party
     <spdlog/spdlog.h>
+    <glaze/glaze.hpp>
     <httplib.h>
 )
 
@@ -99,5 +123,6 @@ target_include_directories(warp
 
 target_link_libraries(warp PRIVATE
     spdlog::spdlog
+    glaze::glaze
     httplib::httplib
 )

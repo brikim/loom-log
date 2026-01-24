@@ -1,6 +1,6 @@
 #pragma once
 
-#include "warp/log-types.h"
+#include "warp/log/log-types.h"
 
 #include <format>
 #include <memory>
@@ -8,11 +8,6 @@
 
 namespace warp
 {
-   enum class Level
-   {
-      TRACE, INFO, WARN, ERR, CRITICAL
-   };
-
    class Logger
    {
    public:
@@ -61,8 +56,8 @@ namespace warp
       Logger();
       virtual ~Logger();
 
-      void LogInternal(Level level, std::string_view msg);
-      bool ShouldLog(Level level);
+      void LogInternal(LogType level, std::string_view msg);
+      bool ShouldLog(LogType level);
 
       struct Impl;
       std::unique_ptr<Impl> pimpl_;
@@ -71,80 +66,80 @@ namespace warp
    template<typename... Args>
    inline void Logger::Trace(std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::TRACE))
+      if (ShouldLog(LogType::TRACE))
       {
          std::string msg = std::format(fmt, std::forward<Args>(args)...);
-         LogInternal(Level::TRACE, msg);
+         LogInternal(LogType::TRACE, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::TraceWithHeader(std::string_view header, std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::TRACE))
+      if (ShouldLog(LogType::TRACE))
       {
          std::string msg = std::format("{}: {}", header, std::format(fmt, std::forward<Args>(args)...));
-         LogInternal(Level::TRACE, msg);
+         LogInternal(LogType::TRACE, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::Info(std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::INFO))
+      if (ShouldLog(LogType::INFO))
       {
          std::string msg = std::format(fmt, std::forward<Args>(args)...);
-         LogInternal(Level::INFO, msg);
+         LogInternal(LogType::INFO, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::InfoWithHeader(std::string_view header, std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::INFO))
+      if (ShouldLog(LogType::INFO))
       {
          std::string msg = std::format("{}: {}", header, std::format(fmt, std::forward<Args>(args)...));
-         LogInternal(Level::INFO, msg);
+         LogInternal(LogType::INFO, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::Warning(std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::WARN))
+      if (ShouldLog(LogType::WARN))
       {
          std::string msg = std::format(fmt, std::forward<Args>(args)...);
-         LogInternal(Level::WARN, msg);
+         LogInternal(LogType::WARN, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::WarningWithHeader(std::string_view header, std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::WARN))
+      if (ShouldLog(LogType::WARN))
       {
          std::string msg = std::format("{}: {}", header, std::format(fmt, std::forward<Args>(args)...));
-         LogInternal(Level::WARN, msg);
+         LogInternal(LogType::WARN, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::Error(std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::ERR))
+      if (ShouldLog(LogType::ERR))
       {
          std::string msg = std::format(fmt, std::forward<Args>(args)...);
-         LogInternal(Level::ERR, msg);
+         LogInternal(LogType::ERR, msg);
       }
    }
 
    template<typename... Args>
    inline void Logger::ErrorWithHeader(std::string_view header, std::format_string<Args...> fmt, Args &&...args)
    {
-      if (ShouldLog(Level::ERR))
+      if (ShouldLog(LogType::ERR))
       {
          std::string msg = std::format("{}: {}", header, std::format(fmt, std::forward<Args>(args)...));
-         LogInternal(Level::ERR, msg);
+         LogInternal(LogType::ERR, msg);
       }
    }
 
@@ -152,13 +147,13 @@ namespace warp
    inline void Logger::Critical(std::format_string<Args...> fmt, Args &&...args)
    {
       std::string msg = std::format(fmt, std::forward<Args>(args)...);
-      LogInternal(Level::CRITICAL, msg);
+      LogInternal(LogType::CRITICAL, msg);
    }
 
    template<typename... Args>
    inline void Logger::CriticalWithHeader(std::string_view header, std::format_string<Args...> fmt, Args &&...args)
    {
       std::string msg = std::format("{}: {}", header, std::format(fmt, std::forward<Args>(args)...));
-      LogInternal(Level::CRITICAL, msg);
+      LogInternal(LogType::CRITICAL, msg);
    }
 }

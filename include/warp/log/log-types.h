@@ -31,6 +31,15 @@ namespace warp
    inline const std::string ANSI_FORMATTED_TAUTULLI(std::format("{}Tautulli{}", ANSI_CODE_TAUTULLI, ANSI_CODE_LOG));
    inline const std::string ANSI_FORMATTED_JELLYSTAT(std::format("{}Jellystat{}", ANSI_CODE_JELLYSTAT, ANSI_CODE_LOG));
 
+   enum class LogType
+   {
+      TRACE,
+      INFO,
+      WARN,
+      ERR,
+      CRITICAL
+   };
+
    struct AppriseLoggingConfig
    {
       std::string url;
