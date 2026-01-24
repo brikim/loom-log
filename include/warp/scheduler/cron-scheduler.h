@@ -2,27 +2,18 @@
 
 #include "warp/types.h"
 
-#include <croncpp.h>
+#include <memory>
 
-#include <chrono>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
-#include <vector>
+class CronSchedulerImpl;
 
 namespace warp
 {
-   struct CronTask
-   {
-      Task task;
-      cron::cronexpr cron;
-      std::chrono::system_clock::time_point nextRun;
-   };
+   class CronSchedulerImpl;
 
    class CronScheduler
    {
    public:
-      CronScheduler() = default;
+      CronScheduler();
       ~CronScheduler();
 
       // Standardize: Add tasks before starting
@@ -32,15 +23,6 @@ namespace warp
       void Shutdown();
 
    private:
-      std::chrono::system_clock::time_point GetNextRunTime() const;
-      void RunTasks();
-      void Work(std::stop_token stopToken);
-
-      std::vector<CronTask> cronTasks_;
-
-      std::mutex cvLock_;
-      std::condition_variable_any cv_;
-
-      std::unique_ptr<std::jthread> runThread_;
+      std::unique_ptr<CronSchedulerImpl> impl_;
    };
 }
