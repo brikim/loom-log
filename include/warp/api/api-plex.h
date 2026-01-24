@@ -18,7 +18,7 @@ namespace warp
    class PlexApi : public ApiBase
    {
    public:
-      PlexApi(std::string_view version, const ServerConfig& serverConfig);
+      PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~PlexApi() = default;
 
       [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;

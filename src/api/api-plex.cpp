@@ -36,7 +36,7 @@ namespace warp
       constexpr std::string_view ATTR_FILE{"file"};
    }
 
-   PlexApi::PlexApi(std::string_view version, const ServerConfig& serverConfig)
+   PlexApi::PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.server_name,
                 .url = serverConfig.url,
                 .apiKey = serverConfig.api_key,
@@ -49,7 +49,7 @@ namespace warp
         {"X-Plex-Token", serverConfig.api_key},
         {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
         {"Accept", "application/json"},
-        {"User-Agent", std::format("Loomis/{}", version)}
+        {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
       BuildData(true);

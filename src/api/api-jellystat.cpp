@@ -19,7 +19,7 @@ namespace warp
       const std::string APPLICATION_JSON{"application/json"};
    }
 
-   JellystatApi::JellystatApi(std::string_view version, const ServerConfig& serverConfig)
+   JellystatApi::JellystatApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.server_name,
             .url = serverConfig.tracker_url,
             .apiKey = serverConfig.tracker_api_key,
@@ -30,7 +30,7 @@ namespace warp
       headers_ = {
          {"x-api-token", GetApiKey()},
          {"Content-Type", APPLICATION_JSON},
-         {"User-Agent", std::format("Loomis/{}", version)}
+         {"User-Agent", std::format("{}/{}", appName, version)}
       };
    }
 

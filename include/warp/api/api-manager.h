@@ -19,7 +19,8 @@ namespace warp
    class ApiManager
    {
    public:
-      ApiManager(std::string_view version,
+      ApiManager(std::string_view appName,
+                 std::string_view version,
                  const std::vector<ServerConfig>& plexConfigs,
                  const std::vector<ServerConfig>& embyConfigs);
       virtual ~ApiManager() = default;
@@ -33,16 +34,16 @@ namespace warp
       [[nodiscard]] ApiBase* GetApi(warp::ApiType type, std::string_view name) const;
 
    private:
-      void SetupPlexApis(std::string_view version, const std::vector<ServerConfig>& serverConfigs);
-      void SetupEmbyApis(std::string_view version, const std::vector<ServerConfig>& serverConfigs);
+      void SetupPlexApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& serverConfigs);
+      void SetupEmbyApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& serverConfigs);
 
       void LogServerConnectionSuccess(std::string_view serverName, ApiBase* api);
       void LogServerConnectionError(std::string_view serverName, ApiBase* api);
 
       template <typename ApiT, typename ContainerT>
-      ApiT* InitializeApi(std::string_view version, ContainerT& container, const ServerConfig& config, std::string_view logName)
+      ApiT* InitializeApi(std::string_view appName, std::string_view version, ContainerT& container, const ServerConfig& config, std::string_view logName)
       {
-         auto& api = container.emplace_back(std::make_unique<ApiT>(version, config));
+         auto& api = container.emplace_back(std::make_unique<ApiT>(appName, version, config));
          api->GetValid() ? LogServerConnectionSuccess(logName, api.get()) : LogServerConnectionError(logName, api.get());
          return api.get();
       }

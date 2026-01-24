@@ -29,7 +29,7 @@ namespace warp
       constexpr std::string_view SEARCH("search");
    }
 
-   TautulliApi::TautulliApi(std::string_view version, const ServerConfig& serverConfig)
+   TautulliApi::TautulliApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.server_name,
             .url = serverConfig.tracker_url,
             .apiKey = serverConfig.tracker_api_key,
@@ -38,7 +38,7 @@ namespace warp
             .prettyName = GetServerName(GetFormattedTautulli(), serverConfig.server_name)})
    {
       // Standardize headers
-      headers_.insert({"User-Agent", std::format("Loomis/{}", version)});
+      headers_.insert({"User-Agent", std::format("{}/{}", appName, version)});
       headers_.insert({"Accept", "application/json"});
    }
 

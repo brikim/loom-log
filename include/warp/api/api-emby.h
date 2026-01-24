@@ -19,7 +19,7 @@ namespace warp
    class EmbyApi : public ApiBase
    {
    public:
-      EmbyApi(std::string_view version, const ServerConfig& serverConfig);
+      EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~EmbyApi() = default;
 
       [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;

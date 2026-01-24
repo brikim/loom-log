@@ -15,7 +15,7 @@ namespace warp
    class TautulliApi : public ApiBase
    {
    public:
-      TautulliApi(std::string_view version, const ServerConfig& serverConfig);
+      TautulliApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~TautulliApi() = default;
 
       [[nodiscard]] std::optional<std::vector<ApiTask>> GetTaskList() override;

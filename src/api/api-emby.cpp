@@ -35,7 +35,7 @@ namespace warp
       constexpr std::string_view ENTRY_IDS{"EntryIds"};
    }
 
-   EmbyApi::EmbyApi(std::string_view version, const ServerConfig& serverConfig)
+   EmbyApi::EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.server_name,
             .url = serverConfig.url,
             .apiKey = serverConfig.api_key,
@@ -44,14 +44,15 @@ namespace warp
             .prettyName = warp::GetServerName(warp::GetFormattedEmby(), serverConfig.server_name)})
       , mediaPath_(serverConfig.media_path)
    {
-      std::string auth = std::format("MediaBrowser Client=\"Loomis\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
+      std::string auth = std::format("MediaBrowser Client=\"{}\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
+                                     appName,
                                      "6e7417e2-8d76-4b1f-9c23-018274959a37",
                                      version,
                                      serverConfig.api_key);
       headers_ = {
         {"X-Emby-Authorization", auth},
         {"Accept", "application/json"},
-        {"User-Agent", std::format("Loomis/{}", version)}
+        {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
       // If the service is valid run any needed tasks

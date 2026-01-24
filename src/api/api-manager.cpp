@@ -7,36 +7,37 @@
 
 namespace warp
 {
-   ApiManager::ApiManager(std::string_view version,
+   ApiManager::ApiManager(std::string_view appName,
+                          std::string_view version,
                           const std::vector<ServerConfig>& plexConfigs,
                           const std::vector<ServerConfig>& embyConfigs)
    {
-      SetupPlexApis(version, plexConfigs);
-      SetupEmbyApis(version, embyConfigs);
+      SetupPlexApis(appName, version, plexConfigs);
+      SetupEmbyApis(appName, version, embyConfigs);
    }
 
-   void ApiManager::SetupPlexApis(std::string_view version, const std::vector<ServerConfig>& configs)
+   void ApiManager::SetupPlexApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& configs)
    {
       for (const auto& server : configs)
       {
-         InitializeApi<PlexApi>(version, plexApis_, server, warp::GetFormattedPlex());
+         InitializeApi<PlexApi>(appName, version, plexApis_, server, warp::GetFormattedPlex());
 
          if (!server.tracker_url.empty())
          {
-            InitializeApi<TautulliApi>(version, tautulliApis_, server, warp::GetFormattedTautulli());
+            InitializeApi<TautulliApi>(appName, version, tautulliApis_, server, warp::GetFormattedTautulli());
          }
       }
    }
 
-   void ApiManager::SetupEmbyApis(std::string_view version, const std::vector<ServerConfig>& configs)
+   void ApiManager::SetupEmbyApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& configs)
    {
       for (const auto& server : configs)
       {
-         InitializeApi<EmbyApi>(version, embyApis_, server, warp::GetFormattedEmby());
+         InitializeApi<EmbyApi>(appName, version, embyApis_, server, warp::GetFormattedEmby());
 
          if (!server.tracker_url.empty())
          {
-            InitializeApi<JellystatApi>(version, jellystatApis_, server, warp::GetFormattedJellystat());
+            InitializeApi<JellystatApi>(appName, version, jellystatApis_, server, warp::GetFormattedJellystat());
          }
       }
    }

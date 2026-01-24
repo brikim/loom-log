@@ -15,7 +15,7 @@ namespace warp
    class JellystatApi : public ApiBase
    {
    public:
-      JellystatApi(std::string_view version, const ServerConfig& serverConfig);
+      JellystatApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
       virtual ~JellystatApi() = default;
 
       // Returns true if the server is reachable and the API key is valid
