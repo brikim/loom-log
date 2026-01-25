@@ -39,8 +39,10 @@ set(WARP_SOURCES
     include/warp/api/api-manager.h
     include/warp/api/api-plex-types.h
     include/warp/api/api-plex.h
+    include/warp/api/api-response.h
     include/warp/api/api-tautulli-types.h
     include/warp/api/api-tautulli.h
+    include/warp/api/api-types.h
     include/warp/log/log.h
     include/warp/log/logger.h
     include/warp/log/log-types.h
@@ -126,9 +128,8 @@ target_include_directories(warp
 )
 
 target_link_libraries(warp 
-    PUBLIC
-        httplib::httplib
     PRIVATE
+        httplib::httplib
         croncpp::croncpp
         spdlog::spdlog
         glaze::glaze

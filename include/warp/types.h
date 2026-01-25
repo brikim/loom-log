@@ -22,4 +22,17 @@ namespace warp
       std::string cronExpression;
       std::function<void()> func;
    };
+
+   struct StringHash
+   {
+      using is_transparent = void;
+      size_t operator()(std::string_view sv) const
+      {
+         return std::hash<std::string_view>{}(sv);
+      }
+      size_t operator()(const std::string& s) const
+      {
+         return std::hash<std::string>{}(s);
+      }
+   };
 }

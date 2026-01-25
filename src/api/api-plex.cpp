@@ -52,6 +52,13 @@ namespace warp
         {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
+      headers_ = {
+        {"X-Plex-Token", serverConfig.api_key},
+        {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
+        {"Accept", "application/json"},
+        {"User-Agent", std::format("{}/{}", appName, version)}
+      };
+
       UpdateRequiredCache(true);
    }
 
@@ -90,8 +97,8 @@ namespace warp
 
    bool PlexApi::GetValid()
    {
-      auto res = GetClient().Get(BuildApiPath(API_SERVERS), headers_);
-      return res.error() == httplib::Error::Success && res.value().status < VALID_HTTP_RESPONSE_MAX;
+      auto res = Get(BuildApiPath(API_SERVERS), headers_);
+      return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::string_view PlexApi::GetMediaPath() const
@@ -101,18 +108,18 @@ namespace warp
 
    std::optional<PlexSearchResults> PlexApi::SearchItem(std::string_view name)
    {
-      const auto apiUrl = BuildApiParamsPath(API_SEARCH, {
+      const auto apiPath = BuildApiParamsPath(API_SEARCH, {
          {"query", name}
       });
-      auto res = GetClient().Get(apiUrl, headers_);
 
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexSearchResult> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -173,15 +180,14 @@ namespace warp
 
    std::optional<std::string> PlexApi::GetServerReportedName()
    {
-      auto res = GetClient().Get(BuildApiPath(API_SERVERS), headers_);
-
+      auto res = Get(BuildApiPath(API_SERVERS), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexServerData> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -211,14 +217,15 @@ namespace warp
    {
       std::string path{API_LIBRARY_DATA};
       path += BuildCommaSeparatedList(ids);
-      auto res = GetClient().Get(BuildApiPath(path), headers_);
+
+      auto res = Get(BuildApiPath(path), headers_);
       if (!IsHttpSuccess(__func__, res)) return {};
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return {};
       }
 
@@ -243,8 +250,8 @@ namespace warp
 
    void PlexApi::SetLibraryScan(std::string_view libraryId)
    {
-      auto apiUrl = BuildApiPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId));
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto apiPath = BuildApiPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId));
+      auto res = Get(apiPath, headers_);
       IsHttpSuccess(__func__, res);
    }
 
@@ -280,14 +287,14 @@ namespace warp
       auto collectionPath = GetCollectionKey(library, collectionName);
       if (collectionPath.empty()) return std::nullopt;
 
-      auto res = GetClient().Get(BuildApiPath(collectionPath), headers_);
+      auto res = Get(BuildApiPath(collectionPath), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return {};
       }
 
@@ -317,14 +324,14 @@ namespace warp
 
    bool PlexApi::SetPlayed(std::string_view ratingKey, int64_t locationMs)
    {
-      const auto apiUrl = BuildApiParamsPath("/:/progress", {
+      const auto apiPath = BuildApiParamsPath("/:/progress", {
          {"identifier", "com.plexapp.plugins.library"},
          {"key", ratingKey},
          {"time", std::format("{}", locationMs)},
          {"state", "stopped"} // 'stopped' commits the time to the database
       });
 
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          auto d = std::chrono::milliseconds(locationMs);
@@ -343,12 +350,12 @@ namespace warp
 
    bool PlexApi::SetWatched(std::string_view ratingKey)
    {
-      const auto apiUrl = BuildApiParamsPath("/:/scrobble", {
+      const auto apiPath = BuildApiParamsPath("/:/scrobble", {
          {"identifier", "com.plexapp.plugins.library"},
          {"key", ratingKey}
       });
 
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          LogError("{} - Failed to mark {} as watched", __func__, warp::GetTag("ratingKey", ratingKey));
@@ -360,15 +367,14 @@ namespace warp
 
    void PlexApi::RebuildLibraryMap()
    {
-      auto res = GetClient().Get(BuildApiPath(API_LIBRARIES), headers_);
-
+      auto res = Get(BuildApiPath(API_LIBRARIES), headers_);
       if (!IsHttpSuccess(__func__, res)) return;
 
       JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return;
       }
 
@@ -400,19 +406,18 @@ namespace warp
       bool sucessfulCollectionGet = false;
       for (const auto& id : libraryIds)
       {
-         std::string apiUrl = BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), {
+         std::string apiPath = BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), {
             {"type", std::format("{}", static_cast<int>(plex_search_collection))}
          });
 
-         auto res = GetClient().Get(apiUrl, headers_);
-
+         auto res = Get(apiPath, headers_);
          if (!IsHttpSuccess(__func__, res)) continue;
 
          JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
-         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
          {
             LogWarning("{} - JSON Parse Error: {}",
-                       __func__, glz::format_error(ec, res.value().body));
+                       __func__, glz::format_error(ec, res.body));
             continue;
          }
 

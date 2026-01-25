@@ -4,8 +4,6 @@
 
 #include <memory>
 
-class CronSchedulerImpl;
-
 namespace warp
 {
    class CronSchedulerImpl;

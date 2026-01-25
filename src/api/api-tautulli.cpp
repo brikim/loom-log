@@ -37,9 +37,10 @@ namespace warp
             .ansiiCode = ANSI_CODE_TAUTULLI,
             .prettyName = GetServerName(GetFormattedTautulli(), serverConfig.server_name)})
    {
-      // Standardize headers
-      headers_.insert({"User-Agent", std::format("{}/{}", appName, version)});
-      headers_.insert({"Accept", "application/json"});
+      headers_ = {
+         {"User-Agent", std::format("{}/{}", appName, version)},
+         {"Accept", "application/json"}
+      };
    }
 
    std::optional<std::vector<Task>> TautulliApi::GetTaskList()
@@ -72,24 +73,23 @@ namespace warp
    bool TautulliApi::GetValid()
    {
       auto apiPath = BuildApiParamsPath("", {GetCmdParam(CMD_GET_SERVER_FRIENDLY_NAME)});
-      auto res = GetClient().Get(apiPath, headers_);
-      return res.error() == httplib::Error::Success && res.value().status < VALID_HTTP_RESPONSE_MAX;
+      auto res = Get(apiPath, headers_);
+      return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::optional<std::string> TautulliApi::GetServerReportedName()
    {
-      auto res = GetClient().Get(BuildApiParamsPath("", {GetCmdParam(CMD_SERVER_INFO)}), headers_);
-
+      auto res = Get(BuildApiParamsPath("", {GetCmdParam(CMD_SERVER_INFO)}), headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          return std::nullopt;
       }
 
       JsonTautulliResponse<JsonTautulliServerInfo> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -102,14 +102,14 @@ namespace warp
 
    std::optional<TautulliUserInfo> TautulliApi::GetUserInfo(std::string_view name)
    {
-      auto res = GetClient().Get(BuildApiParamsPath("", {GetCmdParam(CMD_GET_USERS)}), headers_);
+      auto res = Get(BuildApiParamsPath("", {GetCmdParam(CMD_GET_USERS)}), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonTautulliResponse<std::vector<JsonUserInfo>> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -132,14 +132,14 @@ namespace warp
           {"key", "Monitoring"},
       });
 
-      auto res = GetClient().Get(apiPath, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res, false)) return false;
 
       JsonTautulliResponse<JsonTautulliMonitorInfo> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return false;
       }
 
@@ -167,14 +167,14 @@ namespace warp
       params.reserve(params.size() + extraParams.size());
       params.insert(params.end(), extraParams.begin(), extraParams.end());
 
-      auto res = GetClient().Get(BuildApiParamsPath("", params), headers_);
+      auto res = Get(BuildApiParamsPath("", params), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonTautulliResponse<JsonTautulliHistoryData> serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 

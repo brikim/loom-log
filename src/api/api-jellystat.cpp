@@ -59,8 +59,8 @@ namespace warp
 
    bool JellystatApi::GetValid()
    {
-      auto res = GetClient().Get(BuildApiPath(API_GET_CONFIG), headers_);
-      return res.error() == httplib::Error::Success && res.value().status < VALID_HTTP_RESPONSE_MAX;
+      auto res = Get(BuildApiPath(API_GET_CONFIG), headers_);
+      return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::optional<std::string> JellystatApi::GetServerReportedName()
@@ -72,14 +72,14 @@ namespace warp
    std::optional<JellystatHistoryItems> JellystatApi::GetWatchHistoryForUser(std::string_view userId)
    {
       auto payload = ParamsToJson({{ "userid", userId }});
-      auto res = GetClient().Post(BuildApiPath(API_GET_USER_HISTORY), headers_, payload, APPLICATION_JSON);
+      auto res = Post(BuildApiPath(API_GET_USER_HISTORY), headers_, payload, APPLICATION_JSON);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JellystatHistoryItems serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 

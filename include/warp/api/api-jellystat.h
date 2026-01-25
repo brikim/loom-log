@@ -2,8 +2,7 @@
 
 #include "warp/api/api-base.h"
 #include "warp/api/api-jellystat-types.h"
-
-#include <httplib.h>
+#include <warp/api/api-types.h>
 
 #include <list>
 #include <optional>
@@ -30,6 +29,6 @@ namespace warp
 
       std::string ParamsToJson(const std::list<std::pair<std::string_view, std::string_view>> params);
 
-      httplib::Headers headers_;
+      Headers headers_;
    };
 }

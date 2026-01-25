@@ -1,12 +1,12 @@
 #pragma once
 
+#include "warp/api/api-response.h"
 #include "warp/api/api-types.h"
 #include "warp/base.h"
 #include "warp/types.h"
 
-#include <httplib.h>
-
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -14,12 +14,13 @@
 namespace warp
 {
    using ApiParams = std::vector<std::pair<std::string_view, std::string_view>>;
+   class ApiBaseImpl;
 
    class ApiBase : public Base
    {
    public:
       ApiBase(const ApiBaseData& data);
-      virtual ~ApiBase() = default;
+      virtual ~ApiBase();
 
       // Api tasks are optional. Api's can override to perform a task
       [[nodiscard]] virtual std::optional<std::vector<Task>> GetTaskList();
@@ -36,21 +37,18 @@ namespace warp
       [[nodiscard]] virtual std::string_view GetApiBase() const = 0;
       [[nodiscard]] virtual std::string_view GetApiTokenName() const = 0;
 
-      httplib::Client& GetClient();
+      Response Get(const std::string& path, const Headers& headers);
+      Response Post(const std::string& path, const Headers& headers);
+      Response Post(const std::string& path, const Headers& headers, const std::string& body, const std::string& contentType);
 
       void AddApiParam(std::string& url, const ApiParams& params) const;
       [[nodiscard]] std::string BuildApiPath(std::string_view path) const;
       [[nodiscard]] std::string BuildApiParamsPath(std::string_view path, const ApiParams& params) const;
 
       // Returns if the http request was successful and outputs to the log if not successful
-      bool IsHttpSuccess(std::string_view name, const httplib::Result& result, bool log = true);
+      bool IsHttpSuccess(std::string_view name, const Response& response, bool log = true);
 
    private:
-      std::string name_;
-      std::string prettyName_;
-      std::string url_;
-      std::string apiKey_;
-
-      httplib::Client client_;
+      std::unique_ptr<ApiBaseImpl> pimpl_;
    };
 }

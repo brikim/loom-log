@@ -2,8 +2,8 @@
 
 #include "warp/api/api-base.h"
 #include "warp/api/api-plex-types.h"
-
-#include <httplib.h>
+#include "warp/api/api-types.h"
+#include "warp/types.h"
 
 #include <cstdint>
 #include <list>
@@ -60,30 +60,17 @@ namespace warp
 
       std::optional<PlexSearchResults> SearchItem(std::string_view name);
 
-      httplib::Headers headers_;
+      Headers headers_;
 
       std::string mediaPath_;
       bool enableExtraCache_{false};
 
-      struct string_hash
-      {
-         using is_transparent = void; // This enables heterogeneous lookup
-         size_t operator()(std::string_view sv) const
-         {
-            return std::hash<std::string_view>{}(sv);
-         }
-         size_t operator()(const std::string& s) const
-         {
-            return std::hash<std::string>{}(s);
-         }
-      };
-
       mutable std::shared_mutex dataLock_;
 
-      using PlexNameToIdMap = std::unordered_map<std::string, std::string, string_hash, std::equal_to<>>;
+      using PlexNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
       PlexNameToIdMap libraries_;
 
-      using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, string_hash, std::equal_to<>>;
+      using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
       PlexIdToIdMap collections_;
    };
 }

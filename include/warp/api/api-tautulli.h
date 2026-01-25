@@ -2,8 +2,7 @@
 
 #include "warp/api/api-base.h"
 #include "warp/api/api-tautulli-types.h"
-
-#include <httplib.h>
+#include "warp/api/api-types.h"
 
 #include <cstdint>
 #include <list>
@@ -44,7 +43,7 @@ namespace warp
       bool ReadMonitoringData();
       void RunSettingsUpdate();
 
-      httplib::Headers headers_;
+      Headers headers_;
 
       std::optional<int32_t> watchedPercent_;
    };

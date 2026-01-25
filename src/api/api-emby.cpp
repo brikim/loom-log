@@ -95,8 +95,8 @@ namespace warp
 
    bool EmbyApi::GetValid()
    {
-      auto res = GetClient().Get(BuildApiPath(API_SYSTEM_INFO), headers_);
-      return res.error() == httplib::Error::Success && res.value().status < VALID_HTTP_RESPONSE_MAX;
+      auto res = Get(BuildApiPath(API_SYSTEM_INFO), headers_);
+      return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::string_view EmbyApi::GetMediaPath() const
@@ -106,18 +106,17 @@ namespace warp
 
    std::optional<std::string> EmbyApi::GetServerReportedName()
    {
-      auto res = GetClient().Get(BuildApiPath(API_SYSTEM_INFO), headers_);
-
+      auto res = Get(BuildApiPath(API_SYSTEM_INFO), headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          return std::nullopt;
       }
 
       JsonServerResponse serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -130,15 +129,14 @@ namespace warp
 
    std::optional<std::string> EmbyApi::GetLibraryId(std::string_view libraryName)
    {
-      auto res = GetClient().Get(BuildApiPath(API_MEDIA_FOLDERS), headers_);
-
+      auto res = Get(BuildApiPath(API_MEDIA_FOLDERS), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       std::vector<JsonEmbyLibrary> jsonLibraries;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -177,13 +175,13 @@ namespace warp
       params.reserve(params.size() + extraSearchArgs.size());
       params.insert(params.end(), extraSearchArgs.begin(), extraSearchArgs.end());
 
-      auto res{GetClient().Get(BuildApiParamsPath(API_ITEMS, params), headers_)};
+      auto res = Get(BuildApiParamsPath(API_ITEMS, params), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonEmbyItemsResponse response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
-         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.value().body));
+         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -224,16 +222,15 @@ namespace warp
 
    std::optional<EmbyUserData> EmbyApi::GetUser(std::string_view name)
    {
-      auto res = GetClient().Get(BuildApiPath(API_USERS), headers_);
-
+      auto res = Get(BuildApiPath(API_USERS), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       // Parse into a vector of our minimal user structs
       std::vector<JsonEmbyUser> users;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (users, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (users, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -249,18 +246,19 @@ namespace warp
 
    bool EmbyApi::GetWatchedStatus(std::string_view userId, std::string_view itemId)
    {
-      const auto apiUrl = BuildApiParamsPath(std::format("{}/{}/Items", API_USERS, userId), {
+      const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_USERS, userId), {
          {IDS, itemId},
          {"IsPlayed", "true"}
       });
-      auto res = GetClient().Get(apiUrl, headers_);
+
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return false;
 
       JsonTotalRecordCount response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return false;
       }
 
@@ -269,26 +267,26 @@ namespace warp
 
    bool EmbyApi::SetWatchedStatus(std::string_view userId, std::string_view itemId)
    {
-      const auto apiUrl = BuildApiPath(std::format("{}/{}/PlayedItems/{}", API_USERS, userId, itemId));
-      auto res{GetClient().Post(apiUrl, headers_)};
+      const auto apiPath = BuildApiPath(std::format("{}/{}/PlayedItems/{}", API_USERS, userId, itemId));
+      auto res = Post(apiPath, headers_);
       return IsHttpSuccess(__func__, res);
    }
 
    std::optional<EmbyPlayState> EmbyApi::GetPlayState(std::string_view userId, std::string_view itemId)
    {
-      const auto apiUrl = BuildApiParamsPath(std::format("{}/{}/Items", API_USERS, userId), {
+      const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_USERS, userId), {
          {IDS, itemId},
          {"Fields", "Path,UserDataLastPlayedDate,UserDataPlayCount"}
       });
 
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonEmbyPlayStates response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -307,11 +305,11 @@ namespace warp
 
    bool EmbyApi::SetPlayState(std::string_view userId, std::string_view itemId, int64_t positionTicks, std::string_view dateTimeStr)
    {
-      const auto apiUrl = BuildApiParamsPath(std::format("{}/{}/Items/{}/UserData", API_USERS, userId, itemId), {
+      const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items/{}/UserData", API_USERS, userId, itemId), {
          {"PlaybackPositionTicks", std::to_string(positionTicks)},
          {"LastPlayedDate", dateTimeStr}
       });
-      auto res{GetClient().Post(apiUrl, headers_)};
+      auto res = Post(apiPath, headers_);
       return IsHttpSuccess(__func__, res);
    }
 
@@ -325,15 +323,15 @@ namespace warp
       auto item = GetItem(EmbySearchType::name, name, {{"IncludeItemTypes", "Playlist"}});
       if (!item.has_value()) return std::nullopt;
 
-      auto res = GetClient().Get(BuildApiPath(std::format("{}/{}/Items", API_PLAYLISTS, item->id)), headers_);
+      auto res = Get(BuildApiPath(std::format("{}/{}/Items", API_PLAYLISTS, item->id)), headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       // Parse the entire "Items" array directly into our struct
       JsonEmbyPlaylistItemsResponse response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.value().body));
+                    __func__, glz::format_error(ec, res.body));
          return std::nullopt;
       }
 
@@ -356,70 +354,74 @@ namespace warp
 
    void EmbyApi::CreatePlaylist(std::string_view name, const std::vector<std::string>& itemIds)
    {
-      const auto apiUrl = BuildApiParamsPath(API_PLAYLISTS, {
+      const auto apiPath = BuildApiParamsPath(API_PLAYLISTS, {
          {NAME, name},
          {IDS, BuildCommaSeparatedList(itemIds)},
          {MEDIA_TYPE, MOVIES}
       });
-      auto res{GetClient().Post(apiUrl, headers_)};
+
+      auto res = Post(apiPath, headers_);
       IsHttpSuccess(__func__, res);
    }
 
    bool EmbyApi::AddPlaylistItems(std::string_view playlistId, const std::vector<std::string>& addIds)
    {
-      auto apiUrl = BuildApiParamsPath(std::format("{}/{}/Items", API_PLAYLISTS, playlistId), {
+      auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_PLAYLISTS, playlistId), {
          {IDS, BuildCommaSeparatedList(addIds)}
       });
-      auto res{GetClient().Post(apiUrl, headers_)};
+
+      auto res = Post(apiPath, headers_);
       return IsHttpSuccess(__func__, res);
    }
 
    bool EmbyApi::RemovePlaylistItems(std::string_view playlistId, const std::vector<std::string>& removeIds)
    {
-      const auto apiUrl = BuildApiParamsPath(std::format("{}/{}/Items/Delete", API_PLAYLISTS, playlistId), {
+      const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items/Delete", API_PLAYLISTS, playlistId), {
          {ENTRY_IDS, BuildCommaSeparatedList(removeIds)}
       });
-      auto res{GetClient().Post(apiUrl, headers_)};
+
+      auto res = Post(apiPath, headers_);
       return IsHttpSuccess(__func__, res);
    }
 
    bool EmbyApi::MovePlaylistItem(std::string_view playlistId, std::string_view itemId, uint32_t index)
    {
-      auto apiUrl{BuildApiPath(std::format("{}/{}/Items/{}/Move/{}", API_PLAYLISTS, playlistId, itemId, index))};
-      auto res{GetClient().Post(apiUrl, headers_)};
+      auto apiPath{BuildApiPath(std::format("{}/{}/Items/{}/Move/{}", API_PLAYLISTS, playlistId, itemId, index))};
+
+      auto res = Post(apiPath, headers_);
       return IsHttpSuccess(__func__, res);
    }
 
    void EmbyApi::SetLibraryScan(std::string_view libraryId)
    {
-      const auto apiUrl = BuildApiParamsPath(std::format("/Items/{}/Refresh", libraryId), {
+      const auto apiPath = BuildApiParamsPath(std::format("/Items/{}/Refresh", libraryId), {
          {"Recursive", "true"},
          {"ImageRefreshMode", "Default"},
          {"ReplaceAllImages", "false"},
          {"ReplaceAllMetadata", "false"}
       });
 
-      auto res = GetClient().Post(apiUrl, headers_);
+      auto res = Post(apiPath, headers_);
       IsHttpSuccess(__func__, res);
    }
 
    void EmbyApi::BuildPathMap()
    {
-      const auto apiUrl = BuildApiParamsPath(API_ITEMS, {
+      const auto apiPath = BuildApiParamsPath(API_ITEMS, {
           {"Recursive", "true"},
           {"IncludeItemTypes", "Movie,Episode"},
           {"Fields", "Path,DateModified"},
           {"IsMissing", "false"}
       });
 
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return;
 
       PathRebuildItems response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-             __func__, glz::format_error(ec, res.value().body)); // Log the start of the string for context
+             __func__, glz::format_error(ec, res.body)); // Log the start of the string for context
          return;
       }
 
@@ -454,7 +456,7 @@ namespace warp
 
    bool EmbyApi::HasLibraryChanged()
    {
-      const auto apiUrl = BuildApiParamsPath(API_ITEMS, {
+      const auto apiPath = BuildApiParamsPath(API_ITEMS, {
           {"Recursive", "true"},
           {"IncludeItemTypes", "Movie,Episode"},
           {"SortBy", "DateModified"},
@@ -463,14 +465,14 @@ namespace warp
           {"Fields", "DateModified"}
       });
 
-      auto res = GetClient().Get(apiUrl, headers_);
+      auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return false;
 
       PathRebuildItems response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.value().body))
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
-             __func__, glz::format_error(ec, res.value().body)); // Log the start of the string for context
+             __func__, glz::format_error(ec, res.body)); // Log the start of the string for context
          return false;
       }
 

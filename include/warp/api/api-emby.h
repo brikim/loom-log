@@ -4,8 +4,6 @@
 #include "warp/api/api-emby-types.h"
 #include "warp/api/api-types.h"
 
-#include <httplib.h>
-
 #include <chrono>
 #include <cstdint>
 #include <list>
@@ -67,7 +65,7 @@ namespace warp
 
       std::string_view GetSearchTypeStr(EmbySearchType type);
 
-      httplib::Headers headers_;
+      Headers headers_;
       std::string mediaPath_;
 
       std::string lastSyncTimestamp_;
