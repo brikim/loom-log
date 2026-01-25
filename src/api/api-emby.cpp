@@ -54,31 +54,29 @@ namespace warp
         {"Accept", "application/json"},
         {"User-Agent", std::format("{}/{}", appName, version)}
       };
+
+      UpdateRequiredCache(true);
    }
 
    void EmbyApi::EnableExtraCaching()
    {
       enableExtraCache_ = true;
-
-      // If the service is valid run any needed tasks
-      if (GetValid()) RunPathMapQuickCheck();
+      UpdateExtraCache(true);
    }
 
    std::optional<std::vector<Task>> EmbyApi::GetTaskList()
    {
-      if (!enableExtraCache_) return std::nullopt;
-
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("EmbyApi({}) - Path Map Quick Check", GetName());
-      quickCheck.cronExpression = "30 */5 * * * *";
-      quickCheck.func = [this]() {this->RunPathMapQuickCheck(); };
+      quickCheck.name = std::format("EmbyApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.cronExpression = GetNextCronQuickTime();
+      quickCheck.func = [this]() {this->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("EmbyApi({}) - Path Map Full Update", GetName());
-      fullUpdate.cronExpression = "0 45 3 * * *";
-      fullUpdate.func = [this]() {this->RunPathMapFullUpdate(); };
+      fullUpdate.name = std::format("EmbyApi({}) - Refresh Cache Full", GetName());
+      fullUpdate.cronExpression = GetNextCronFullTime();
+      fullUpdate.func = [this]() {this->RefreshCache(true); };
 
       return tasks;
    }
@@ -129,27 +127,9 @@ namespace warp
 
    std::optional<std::string> EmbyApi::GetLibraryId(std::string_view libraryName)
    {
-      auto res = Get(BuildApiPath(API_MEDIA_FOLDERS), headers_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
-
-      std::vector<JsonEmbyLibrary> jsonLibraries;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.body))
-      {
-         LogWarning("{} - JSON Parse Error: {}",
-                    __func__, glz::format_error(ec, res.body));
-         return std::nullopt;
-      }
-
-      auto it = std::ranges::find_if(jsonLibraries, [&](const auto& lib) {
-         return lib.Name == libraryName;
-      });
-
-      if (it != jsonLibraries.end())
-      {
-         // Move the ID out of our temporary vector and return it
-         return std::move(it->Id);
-      }
-      return std::nullopt;
+      std::shared_lock lock(dataLock_);
+      auto iter = libraries_.find(libraryName);
+      return iter == libraries_.end() ? std::nullopt : std::make_optional(iter->second);
    }
 
    std::string_view EmbyApi::GetSearchTypeStr(EmbySearchType type)
@@ -320,7 +300,10 @@ namespace warp
 
    std::optional<EmbyPlaylist> EmbyApi::GetPlaylist(std::string_view name)
    {
-      auto item = GetItem(EmbySearchType::name, name, {{"IncludeItemTypes", "Playlist"}});
+      static const warp::ApiParams apiParams = {
+         {"IncludeItemTypes", "Playlist"}
+      };
+      auto item = GetItem(EmbySearchType::name, name, apiParams);
       if (!item.has_value()) return std::nullopt;
 
       auto res = Get(BuildApiPath(std::format("{}/{}/Items", API_PLAYLISTS, item->id)), headers_);
@@ -394,28 +377,30 @@ namespace warp
 
    void EmbyApi::SetLibraryScan(std::string_view libraryId)
    {
-      const auto apiPath = BuildApiParamsPath(std::format("/Items/{}/Refresh", libraryId), {
+      static const warp::ApiParams apiParams = {
          {"Recursive", "true"},
          {"ImageRefreshMode", "Default"},
          {"ReplaceAllImages", "false"},
          {"ReplaceAllMetadata", "false"}
-      });
+      };
+      const auto apiPath = BuildApiParamsPath(std::format("/Items/{}/Refresh", libraryId), apiParams);
 
       auto res = Post(apiPath, headers_);
       IsHttpSuccess(__func__, res);
    }
 
-   void EmbyApi::BuildPathMap()
+   void EmbyApi::RebuildPathMap()
    {
-      const auto apiPath = BuildApiParamsPath(API_ITEMS, {
-          {"Recursive", "true"},
-          {"IncludeItemTypes", "Movie,Episode"},
-          {"Fields", "Path,DateModified"},
-          {"IsMissing", "false"}
-      });
+      static const warp::ApiParams apiParams = {
+         {"Recursive", "true"},
+         {"IncludeItemTypes", "Movie,Episode"},
+         {"Fields", "Path,DateModified"},
+         {"IsMissing", "false"}
+      };
+      const auto apiPath = BuildApiParamsPath(API_ITEMS, apiParams);
 
       auto res = Get(apiPath, headers_);
-      if (!IsHttpSuccess(__func__, res)) return;
+      if (res.status >= VALID_HTTP_RESPONSE_MAX) return;
 
       PathRebuildItems response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -446,7 +431,7 @@ namespace warp
 
       if (!workingPathMap_.empty())
       {
-         std::lock_guard lock(taskLock_);
+         std::lock_guard lock(dataLock_);
          std::swap(workingPathMap_, pathMap_);
          lastSyncTimestamp_ = std::move(localMaxTimestamp);
       }
@@ -456,14 +441,15 @@ namespace warp
 
    bool EmbyApi::HasLibraryChanged()
    {
-      const auto apiPath = BuildApiParamsPath(API_ITEMS, {
-          {"Recursive", "true"},
+      static const warp::ApiParams apiParams = {
+         {"Recursive", "true"},
           {"IncludeItemTypes", "Movie,Episode"},
           {"SortBy", "DateModified"},
           {"SortOrder", "Descending"},
           {"Limit", "1"},
           {"Fields", "DateModified"}
-      });
+      };
+      const auto apiPath = BuildApiParamsPath(API_ITEMS, apiParams);
 
       auto res = Get(apiPath, headers_);
       if (!IsHttpSuccess(__func__, res)) return false;
@@ -481,23 +467,64 @@ namespace warp
          && response.Items[0].DateModified > lastSyncTimestamp_;
    }
 
-   void EmbyApi::RunPathMapQuickCheck()
+   void EmbyApi::RebuildLibraryMap()
    {
-      if (GetPathMapEmpty() || HasLibraryChanged())
+      auto res = Get(BuildApiPath(API_MEDIA_FOLDERS), headers_);
+      if (!IsHttpSuccess(__func__, res)) return;
+
+      std::vector<JsonEmbyLibrary> jsonLibraries;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.body))
       {
-         BuildPathMap();
+         LogWarning("{} - JSON Parse Error: {}",
+                    __func__, glz::format_error(ec, res.body));
+         return;
       }
+
+      EmbyNameToIdMap newMap;
+      newMap.reserve(jsonLibraries.size());
+      for (auto& library : jsonLibraries)
+      {
+         newMap.emplace(std::move(library.Name), std::move(library.Id));
+      }
+
+      std::unique_lock lock(dataLock_);
+      libraries_ = std::move(newMap);
    }
 
-   void EmbyApi::RunPathMapFullUpdate()
+   void EmbyApi::UpdateRequiredCache(bool forceRefresh)
    {
-      BuildPathMap();
+      bool refreshLibraries = false;
+      {
+         if (forceRefresh || GetLibraryMapEmpty()) refreshLibraries = true;
+      }
+      if (refreshLibraries) RebuildLibraryMap();
+   }
+
+   void EmbyApi::UpdateExtraCache(bool forceRefresh)
+   {
+      bool refresh = false;
+      {
+         if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged()) refresh = true;
+      }
+      if (refresh) RebuildPathMap();
+   }
+
+   void EmbyApi::RefreshCache(bool forceRefresh)
+   {
+      UpdateRequiredCache(forceRefresh);
+      if (enableExtraCache_) UpdateExtraCache(forceRefresh);
    }
 
    bool EmbyApi::GetPathMapEmpty() const
    {
-      std::lock_guard lock(taskLock_);
+      std::lock_guard lock(dataLock_);
       return pathMap_.empty();
+   }
+
+   bool EmbyApi::GetLibraryMapEmpty() const
+   {
+      std::lock_guard lock(dataLock_);
+      return libraries_.empty();
    }
 
    std::optional<std::string> EmbyApi::GetIdFromPathMap(const std::string& path)
@@ -508,7 +535,7 @@ namespace warp
          return std::nullopt;
       }
 
-      std::lock_guard lock(taskLock_);
+      std::lock_guard lock(dataLock_);
 
       // Look up the item once
       if (auto it = pathMap_.find(path); it != pathMap_.end())

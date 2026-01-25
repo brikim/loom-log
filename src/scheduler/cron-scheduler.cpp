@@ -34,9 +34,13 @@ namespace warp
 
          try
          {
+            // Construct the cron first as this will throw an exception if invalid.
+            // This prevents a task being added with invalid cron
+            auto cron = cron::make_cron(task.cronExpression);
+
             auto& cronTask = tasks.emplace_back();
             cronTask.task = task;
-            cronTask.cron = cron::make_cron(task.cronExpression);
+            cronTask.cron = cron;
             cronTask.nextRun = cron::cron_next(cronTask.cron, std::chrono::system_clock::now());
 
             warp::log::Trace("Cron Scheduler: Added task {} with {}",

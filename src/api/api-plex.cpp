@@ -73,13 +73,13 @@ namespace warp
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("PlexApi({}) - Data Quick Check", GetName());
-      quickCheck.cronExpression = "45 */5 * * * *";
+      quickCheck.name = std::format("PlexApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.cronExpression = GetNextCronQuickTime();
       quickCheck.func = [this]() {this->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("PlexApi({}) - Data Full Update", GetName());
-      fullUpdate.cronExpression = "0 48 3 * * *";
+      fullUpdate.name = std::format("PlexApi({}) - Refresh Cache Full", GetName());
+      fullUpdate.cronExpression = GetNextCronFullTime();
       fullUpdate.func = [this]() {this->RefreshCache(true); };
 
       return tasks;

@@ -37,6 +37,9 @@ namespace warp
       [[nodiscard]] virtual std::string_view GetApiBase() const = 0;
       [[nodiscard]] virtual std::string_view GetApiTokenName() const = 0;
 
+      std::string GetNextCronQuickTime() const;
+      std::string GetNextCronFullTime() const;
+
       Response Get(const std::string& path, const Headers& headers);
       Response Post(const std::string& path, const Headers& headers);
       Response Post(const std::string& path, const Headers& headers, const std::string& body, const std::string& contentType);

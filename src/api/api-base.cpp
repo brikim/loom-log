@@ -11,6 +11,17 @@
 
 namespace warp
 {
+   namespace
+   {
+      constexpr int32_t CRON_QUICK_CHECK_SECOND_START{5};
+      constexpr int32_t CRON_QUICK_CHECK_SECOND_INCREMENT{5};
+      constexpr int32_t CRON_QUICK_CHECK_MINUTES{5};
+
+      constexpr int32_t CRON_FULL_CHECK_MINUTE_START{31};
+      constexpr int32_t CRON_FULL_CHECK_MINUTE_INCREMENT{2};
+      constexpr int32_t CRON_FULL_CHECK_HOUR{3};
+   }
+
    class ApiBaseImpl
    {
    public:
@@ -213,6 +224,27 @@ namespace warp
    const std::string& ApiBase::GetApiKey() const
    {
       return pimpl_->apiKey_;
+   }
+
+   std::string ApiBase::GetNextCronQuickTime() const
+   {
+      // Start at the 5 second mark
+      static auto seconds{CRON_QUICK_CHECK_SECOND_START};
+
+      auto useSeconds = seconds;
+      seconds += CRON_QUICK_CHECK_SECOND_INCREMENT;
+
+      return std::format("{} */{} * * * *", useSeconds, CRON_QUICK_CHECK_MINUTES);
+   }
+
+   std::string ApiBase::GetNextCronFullTime() const
+   {
+      static auto minutes{CRON_FULL_CHECK_MINUTE_START};
+
+      auto minutesToUse = minutes;
+      minutes += CRON_FULL_CHECK_MINUTE_INCREMENT;
+
+      return std::format("0 {} {} * * *", minutesToUse, CRON_FULL_CHECK_HOUR);
    }
 
    void ApiBase::AddApiParam(std::string& url, const ApiParams& params) const

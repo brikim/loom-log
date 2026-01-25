@@ -49,7 +49,7 @@ namespace warp
 
       auto& fullUpdate = tasks.emplace_back();
       fullUpdate.name = std::format("TautulliApi({}) - Settings Update", GetName());
-      fullUpdate.cronExpression = "0 50 3 * * *";
+      fullUpdate.cronExpression = GetNextCronFullTime();
       fullUpdate.func = [this]() {this->RunSettingsUpdate(); };
 
       return tasks;

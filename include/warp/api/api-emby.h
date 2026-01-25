@@ -7,8 +7,8 @@
 #include <chrono>
 #include <cstdint>
 #include <list>
-#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -57,9 +57,14 @@ namespace warp
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
 
-      void BuildPathMap();
-      void RunPathMapQuickCheck();
-      void RunPathMapFullUpdate();
+      [[nodiscard]] bool GetLibraryMapEmpty() const;
+
+      void RebuildPathMap();
+      void RebuildLibraryMap();
+
+      void UpdateRequiredCache(bool forceRefresh);
+      void UpdateExtraCache(bool forceRefresh);
+      void RefreshCache(bool forceRefresh);
 
       bool HasLibraryChanged();
 
@@ -69,10 +74,14 @@ namespace warp
       std::string mediaPath_;
 
       std::string lastSyncTimestamp_;
+
+      using EmbyNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
+      EmbyNameToIdMap libraries_;
+
       bool enableExtraCache_{false};
       EmbyPathMap pathMap_;
       EmbyPathMap workingPathMap_;
 
-      mutable std::mutex taskLock_;
+      mutable std::shared_mutex dataLock_;
    };
 }
