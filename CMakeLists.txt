@@ -125,9 +125,11 @@ target_include_directories(warp
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(warp PRIVATE
-    croncpp::croncpp
-    spdlog::spdlog
-    glaze::glaze
-    httplib::httplib
+target_link_libraries(warp 
+    PUBLIC
+        httplib::httplib
+    PRIVATE
+        croncpp::croncpp
+        spdlog::spdlog
+        glaze::glaze
 )
