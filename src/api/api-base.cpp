@@ -176,6 +176,7 @@ namespace warp
          return Response{
              .status = VALID_HTTP_RESPONSE_MAX,
              .reason = "HTTP returned no result",
+             .body = "",
              .error = ConvertError(res.error())
          };
       }

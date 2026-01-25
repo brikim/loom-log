@@ -65,7 +65,7 @@ namespace warp
 
    struct JsonTotalRecordCount
    {
-      int32_t TotalRecordCount;
+      int32_t TotalRecordCount{0};
    };
 
    struct JsonEmbyPlaystateUserData
