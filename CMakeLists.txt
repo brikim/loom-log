@@ -54,6 +54,7 @@ set(WARP_SOURCES
     src/api/api-base.cpp
     src/api/api-emby-json-types.h
     src/api/api-emby.cpp
+    src/api/api-jellystat-json-types.h
     src/api/api-jellystat.cpp
     src/api/api-manager.cpp
     src/api/api-plex-json-types.h

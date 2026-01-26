@@ -21,6 +21,6 @@ namespace warp
       void Shutdown();
 
    private:
-      std::unique_ptr<CronSchedulerImpl> impl_;
+      std::unique_ptr<CronSchedulerImpl> pimpl_;
    };
 }

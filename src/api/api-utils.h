@@ -1,10 +1,14 @@
 #pragma once
 
+#include <glaze/json/write.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <list>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace warp
@@ -65,5 +69,17 @@ namespace warp
       }
 
       return result;
+   }
+
+   inline std::string ParamsToJson(const std::list<std::pair<std::string_view, std::string_view>> params)
+   {
+      // Copy into a standard map so Glaze recognizes the structure
+      std::map<std::string_view, std::string_view> m;
+      for (const auto& [key, value] : params)
+      {
+         m[key] = value;
+      }
+
+      return glz::write_json(m).value_or("{}");
    }
 }

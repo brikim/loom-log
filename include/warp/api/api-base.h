@@ -5,10 +5,10 @@
 #include "warp/base.h"
 #include "warp/types.h"
 
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace warp

@@ -1,5 +1,7 @@
 #include "warp/api/api-jellystat.h"
 
+#include "api/api-jellystat-json-types.h"
+#include "api/api-utils.h"
 #include "warp/log/log-utils.h"
 #include "warp/utils.h"
 
@@ -19,6 +21,22 @@ namespace warp
       const std::string APPLICATION_JSON{"application/json"};
    }
 
+   struct JellystatApiImpl
+   {
+      JellystatApi& parent;
+      Headers headers;
+
+      JellystatApiImpl(JellystatApi& p, std::string_view appName, std::string_view version)
+         : parent(p)
+      {
+         headers = {
+            {"x-api-token", parent.GetApiKey()},
+            {"Content-Type", APPLICATION_JSON},
+            {"User-Agent", std::format("{}/{}", appName, version)}
+         };
+      }
+   };
+
    JellystatApi::JellystatApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.server_name,
             .url = serverConfig.tracker_url,
@@ -26,13 +44,11 @@ namespace warp
             .className = "JellystatApi",
             .ansiiCode = warp::ANSI_CODE_JELLYSTAT,
             .prettyName = warp::GetServerName(warp::GetFormattedJellystat(), serverConfig.server_name)})
+      , pimpl_(std::make_unique<JellystatApiImpl>(*this, appName, version))
    {
-      headers_ = {
-         {"x-api-token", GetApiKey()},
-         {"Content-Type", APPLICATION_JSON},
-         {"User-Agent", std::format("{}/{}", appName, version)}
-      };
    }
+
+   JellystatApi::~JellystatApi() = default;
 
    std::string_view JellystatApi::GetApiBase() const
    {
@@ -45,21 +61,9 @@ namespace warp
       return "";
    }
 
-   std::string JellystatApi::ParamsToJson(const std::list<std::pair<std::string_view, std::string_view>> params)
-   {
-      // Copy into a standard map so Glaze recognizes the structure
-      std::map<std::string_view, std::string_view> m;
-      for (const auto& [key, value] : params)
-      {
-         m[key] = value;
-      }
-
-      return glz::write_json(m).value_or("{}");
-   }
-
    bool JellystatApi::GetValid()
    {
-      auto res = Get(BuildApiPath(API_GET_CONFIG), headers_);
+      auto res = Get(BuildApiPath(API_GET_CONFIG), pimpl_->headers);
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
@@ -72,10 +76,10 @@ namespace warp
    std::optional<JellystatHistoryItems> JellystatApi::GetWatchHistoryForUser(std::string_view userId)
    {
       auto payload = ParamsToJson({{ "userid", userId }});
-      auto res = Post(BuildApiPath(API_GET_USER_HISTORY), headers_, payload, APPLICATION_JSON);
+      auto res = Post(BuildApiPath(API_GET_USER_HISTORY), pimpl_->headers, payload, APPLICATION_JSON);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
-      JellystatHistoryItems serverResponse;
+      JsonJellystatHistoryItems serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
@@ -83,6 +87,18 @@ namespace warp
          return std::nullopt;
       }
 
-      return serverResponse;
+      JellystatHistoryItems returnResponse;
+      for (auto& item : serverResponse.items)
+      {
+         auto& returnItem = returnResponse.items.emplace_back();
+         returnItem.name = std::move(item.name);
+         returnItem.fullName = std::move(item.GetFullName());
+         returnItem.id = std::move(item.id);
+         returnItem.user = std::move(item.user);
+         returnItem.watchTime = std::move(item.watchTime);
+         returnItem.seriesName = std::move(item.seriesName);
+         returnItem.episodeId = std::move(item.episodeId);
+      }
+      return returnResponse;
    }
 }

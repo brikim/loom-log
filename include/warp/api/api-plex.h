@@ -2,24 +2,21 @@
 
 #include "warp/api/api-base.h"
 #include "warp/api/api-plex-types.h"
-#include "warp/api/api-types.h"
-#include "warp/types.h"
 
-#include <cstdint>
-#include <list>
 #include <optional>
-#include <shared_mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace warp
 {
+   struct PlexApiImpl;
+
    class PlexApi : public ApiBase
    {
    public:
       PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
-      virtual ~PlexApi() = default;
+      virtual ~PlexApi();
 
       void EnableExtraCaching();
 
@@ -45,32 +42,12 @@ namespace warp
       bool SetPlayed(std::string_view ratingKey, int64_t locationMs);
       bool SetWatched(std::string_view ratingKey);
 
-   private:
+   protected:
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
 
-      void RebuildLibraryMap();
-      void RebuildCollectionMap();
-      void UpdateRequiredCache(bool forceRefresh);
-      void UpdateExtraCache(bool forceRefresh);
-      void RefreshCache(bool forceRefresh);
-
-      // Returns the collection api path
-      std::string GetCollectionKey(std::string_view library, std::string_view collection);
-
-      std::optional<PlexSearchResults> SearchItem(std::string_view name);
-
-      Headers headers_;
-
-      std::string mediaPath_;
-      bool enableExtraCache_{false};
-
-      mutable std::shared_mutex dataLock_;
-
-      using PlexNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
-      PlexNameToIdMap libraries_;
-
-      using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
-      PlexIdToIdMap collections_;
+   private:
+      friend struct PlexApiImpl;
+      std::unique_ptr<PlexApiImpl> pimpl_;
    };
 }

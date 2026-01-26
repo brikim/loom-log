@@ -6,8 +6,8 @@
 
 #include <httplib.h>
 
+#include <cstdint>
 #include <format>
-#include <string_view>
 
 namespace warp
 {

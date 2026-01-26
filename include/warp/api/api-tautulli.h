@@ -5,17 +5,19 @@
 #include "warp/api/api-types.h"
 
 #include <cstdint>
-#include <list>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace warp
 {
+   struct TautulliApiImpl;
+
    class TautulliApi : public ApiBase
    {
    public:
       TautulliApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
-      virtual ~TautulliApi() = default;
+      virtual ~TautulliApi();
 
       [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
@@ -29,22 +31,12 @@ namespace warp
                                                                                std::string_view dateForHistory,
                                                                                int64_t epochHistoryTime);
 
-   private:
+   protected:
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
 
-      [[nodiscard]] std::pair<std::string_view, std::string_view> GetCmdParam(std::string_view cmd) const;
-      [[nodiscard]] std::optional<TautulliHistoryItems> GetWatchHistory(std::string_view user,
-                                                                        int64_t epochHistoryTime,
-                                                                        const ApiParams& extraParams);
-
-      int32_t GetWatchedPercent();
-
-      bool ReadMonitoringData();
-      void RunSettingsUpdate();
-
-      Headers headers_;
-
-      std::optional<int32_t> watchedPercent_;
+   private:
+      friend struct TautulliApiImpl;
+      std::unique_ptr<TautulliApiImpl> pimpl_;
    };
 }

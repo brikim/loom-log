@@ -142,7 +142,7 @@ namespace warp
    };
 
    CronScheduler::CronScheduler()
-      : impl_(std::make_unique<CronSchedulerImpl>())
+      : pimpl_(std::make_unique<CronSchedulerImpl>())
    {
    }
 
@@ -153,16 +153,16 @@ namespace warp
 
    void CronScheduler::Add(const Task& task)
    {
-      impl_->Add(task);
+      pimpl_->Add(task);
    }
 
    bool CronScheduler::Start()
    {
-      return impl_->Start();
+      return pimpl_->Start();
    }
 
    void CronScheduler::Shutdown()
    {
-      impl_->Shutdown();
+      pimpl_->Shutdown();
    }
 }
