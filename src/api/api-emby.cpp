@@ -87,6 +87,8 @@ namespace warp
 
       void RebuildPathMap()
       {
+         parent.LogTrace("Rebuilding Path Map");
+
          std::vector<std::string> libraryIds;
          {
             std::shared_lock lock(dataLock_);
@@ -143,6 +145,8 @@ namespace warp
 
       void RebuildLibraryMap()
       {
+         parent.LogTrace("Rebuilding Library Map");
+
          auto res = parent.Get(parent.BuildApiPath(API_MEDIA_FOLDERS), headers);
          if (!parent.IsHttpSuccess(__func__, res)) return;
 

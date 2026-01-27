@@ -55,11 +55,23 @@ namespace warp
                                                               sinks.end(),
                                                               spdlog::thread_pool(),
                                                               spdlog::async_overflow_policy::block);
-      pimpl_->logger->flush_on(spdlog::level::info);
 
+      bool traceEnabled = false;
 #if defined(_DEBUG) || !defined(NDEBUG)
-      pimpl_->logger->set_level(spdlog::level::trace);
+      traceEnabled = true;
+#else
+
+      if (std::getenv("WARP_LOG_TRACE")) traceEnabled = true;
 #endif
+      if (traceEnabled)
+      {
+         pimpl_->logger->set_level(spdlog::level::trace);
+         pimpl_->logger->flush_on(spdlog::level::trace);
+      }
+      else
+      {
+         pimpl_->logger->flush_on(spdlog::level::info);
+      }
    }
 
    Logger::~Logger() = default;

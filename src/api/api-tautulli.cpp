@@ -103,6 +103,8 @@ namespace warp
 
       bool ReadMonitoringData()
       {
+         parent.LogTrace("Updating Monitoring Data");
+
          auto apiPath = parent.BuildApiParamsPath("", {
             GetCmdParam(CMD_GET_SETTINGS),
              {"key", "Monitoring"},

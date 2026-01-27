@@ -74,8 +74,8 @@ namespace warp
             if (task.nextRun <= currentTime)
             {
                warp::log::Trace("Cron Scheduler: Running task {} with {}",
-                                        warp::GetTag("name", task.task.name),
-                                        warp::GetTag("cron", task.task.cronExpression));
+                                warp::GetTag("name", task.task.name),
+                                warp::GetTag("cron", task.task.cronExpression));
                try
                {
                   task.task.func();

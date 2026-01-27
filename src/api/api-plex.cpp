@@ -76,6 +76,8 @@ namespace warp
 
       void RebuildLibraryMap()
       {
+         parent.LogTrace("Rebuilding Library Map");
+
          auto res = parent.Get(parent.BuildApiPath(API_LIBRARIES), headers);
          if (!parent.IsHttpSuccess(__func__, res)) return;
 
@@ -100,6 +102,8 @@ namespace warp
 
       void RebuildCollectionMap()
       {
+         parent.LogTrace("Rebuilding Collection Map");
+
          std::vector<std::string> libraryIds;
          {
             std::shared_lock sharedLock(dataLock);
