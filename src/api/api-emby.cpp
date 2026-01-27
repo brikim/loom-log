@@ -180,11 +180,12 @@ namespace warp
 
       void UpdateExtraCache(bool forceRefresh)
       {
-         bool refresh = false;
+         auto libraryModifyTime = GetLibraryModifyTime();
+         if (!libraryModifyTime.empty() && (forceRefresh || GetPathMapEmpty() || libraryModifyTime > lastSyncTimestamp))
          {
-            if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged()) refresh = true;
+            lastSyncTimestamp = std::move(libraryModifyTime);
+            RebuildPathMap();
          }
-         if (refresh) RebuildPathMap();
       }
 
       void RefreshCache(bool forceRefresh)
@@ -193,7 +194,7 @@ namespace warp
          if (enableExtraCache) UpdateExtraCache(forceRefresh);
       }
 
-      bool HasLibraryChanged()
+      std::string GetLibraryModifyTime()
       {
          static const warp::ApiParams apiParams = {
             {"Recursive", "true"},
@@ -206,19 +207,23 @@ namespace warp
          const auto apiPath = parent.BuildApiParamsPath(API_ITEMS, apiParams);
 
          auto res = parent.Get(apiPath, headers);
-         if (!parent.IsHttpSuccess(__func__, res)) return false;
+         if (!parent.IsHttpSuccess(__func__, res)) return {};
 
          PathRebuildItems response;
          if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
          {
             parent.LogWarning("{} - JSON Parse Error: {}",
                               __func__, glz::format_error(ec, res.body)); // Log the start of the string for context
-            return false;
+            return {};
          }
 
-         return !response.Items.empty()
-            && !response.Items[0].DateModified.empty()
-            && response.Items[0].DateModified > lastSyncTimestamp;
+         if (!response.Items.empty()
+            && !response.Items[0].DateModified.empty())
+         {
+            return response.Items[0].DateModified;
+         }
+
+         return {};
       }
 
       std::string_view GetSearchTypeStr(EmbySearchType type)
