@@ -62,8 +62,6 @@ namespace warp
          headers_ = {
             {"X-Plex-Token", serverConfig.api_key},
             {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
-            {"X-Plex-Platform", std::string(appName)},
-            {"X-Plex-Platform-Version", std::string(version)},
             {"Accept", "application/json"},
             {"User-Agent", std::format("{}/{}", appName, version)}
          };
