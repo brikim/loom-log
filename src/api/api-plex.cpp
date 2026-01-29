@@ -11,7 +11,6 @@
 #include <charconv>
 #include <cmath>
 #include <format>
-#include <future>
 #include <mutex>
 #include <ranges>
 #include <shared_mutex>
@@ -40,27 +39,31 @@ namespace warp
 
    struct PlexApiImpl
    {
-      PlexApi& parent;
-      Headers headers;
+      PlexApi& parent_;
+      Headers headers_;
 
-      std::string mediaPath;
-      bool enableExtraCache{false};
+      std::string mediaPath_;
+      bool enableExtraCache_{false};
 
       mutable std::shared_mutex dataLock;
 
       using PlexNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
-      PlexNameToIdMap libraries;
+      PlexNameToIdMap libraries_;
+      PlexNameToIdMap workingLibraries_;
 
       using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
-      PlexIdToIdMap collections;
+      PlexIdToIdMap collections_;
+      PlexIdToIdMap workingCollections_;
 
       PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-         : parent(p)
-         , mediaPath(serverConfig.media_path)
+         : parent_(p)
+         , mediaPath_(serverConfig.media_path)
       {
-         headers = {
+         headers_ = {
             {"X-Plex-Token", serverConfig.api_key},
             {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
+            {"X-Plex-Platform", std::string(appName)},
+            {"X-Plex-Platform-Version", std::string(version)},
             {"Accept", "application/json"},
             {"User-Agent", std::format("{}/{}", appName, version)}
          };
@@ -70,99 +73,101 @@ namespace warp
 
       void EnableExtraCaching()
       {
-         enableExtraCache = true;
+         enableExtraCache_ = true;
          UpdateExtraCache(true);
       }
 
       void RebuildLibraryMap()
       {
-         parent.LogTrace("Rebuilding Library Map");
+         parent_.LogTrace("Rebuilding Library Map");
 
-         auto res = parent.Get(parent.BuildApiPath(API_LIBRARIES), headers);
-         if (!parent.IsHttpSuccess(__func__, res)) return;
+         auto res = parent_.Get(parent_.BuildApiPath(API_LIBRARIES), headers_);
+         if (!parent_.IsHttpSuccess(__func__, res)) return;
 
          JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
          if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
          {
-            parent.LogWarning("{} - JSON Parse Error: {}",
+            parent_.LogWarning("{} - JSON Parse Error: {}",
                               __func__, glz::format_error(ec, res.body));
             return;
          }
 
-         PlexNameToIdMap newMap;
-         newMap.reserve(serverResponse.response.libraries.size());
+         workingLibraries_.reserve(serverResponse.response.libraries.size());
          for (auto& library : serverResponse.response.libraries)
          {
-            newMap.emplace(std::move(library.title), std::move(library.id));
+            workingLibraries_.emplace(std::move(library.title), std::move(library.id));
          }
 
-         std::unique_lock lock(dataLock);
-         libraries = std::move(newMap);
+         if (!workingLibraries_.empty())
+         {
+            std::unique_lock lock(dataLock);
+            std::swap(workingLibraries_, libraries_);
+            workingLibraries_.clear();
+         }
+         else
+         {
+            parent_.LogWarning("{} - Keeping stale library data due to fetch failures", __func__);
+         }
       }
 
       void RebuildCollectionMap()
       {
-         parent.LogTrace("Rebuilding Collection Map");
+         parent_.LogTrace("Rebuilding Collection Map");
 
          std::vector<std::string> libraryIds;
          {
             std::shared_lock sharedLock(dataLock);
-            libraryIds.reserve(libraries.size());
-            for (const auto& [name, id] : libraries) libraryIds.emplace_back(id);
-         }
-
-         // We store the results of the background tasks here
-         using MapResult = std::pair<std::string, PlexNameToIdMap>;
-         std::vector<std::future<std::optional<MapResult>>> futures;
-
-         for (const auto& id : libraryIds)
-         {
-            // Launch each library fetch in a separate thread
-            futures.emplace_back(std::async(std::launch::async, [this, id]() -> std::optional<MapResult> {
-               std::string apiPath = parent.BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), {
-                   {"type", std::format("{}", static_cast<int>(plex_search_collection))}
-               });
-
-               auto res = parent.Get(apiPath, headers);
-               if (!parent.IsHttpSuccess(__func__, res)) return std::nullopt;
-
-               JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
-               if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
-               {
-                  return std::nullopt;
-               }
-
-               PlexNameToIdMap nameToIdMap;
-               for (auto& item : serverResponse.response.data)
-               {
-                  nameToIdMap.emplace(std::move(item.title), std::move(item.key));
-               }
-
-               return std::make_pair(id, std::move(nameToIdMap));
-            }));
-         }
-
-         PlexIdToIdMap newMap;
-         bool successfulCollectionGet = false;
-
-         // Collect all results
-         for (auto& fut : futures)
-         {
-            if (auto result = fut.get(); result.has_value())
+            libraryIds.reserve(libraries_.size());
+            for (const auto& [name, id] : libraries_)
             {
-               successfulCollectionGet = true;
-               newMap.emplace(std::move(result->first), std::move(result->second));
+               libraryIds.emplace_back(id);
             }
          }
 
-         if (successfulCollectionGet)
+         workingCollections_.reserve(libraryIds.size());
+
+         bool sucessfulCollectionGet = false;
+         for (const auto& id : libraryIds)
+         {
+            static const ApiParams apiParams = {
+               {"type", std::format("{}", static_cast<int>(plex_search_collection))}
+            };
+            std::string apiPath = parent_.BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), apiParams);
+
+            auto res = parent_.Get(apiPath, headers_);
+            if (!parent_.IsHttpSuccess(__func__, res)) continue;
+
+            JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
+            if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
+            {
+               parent_.LogWarning("{} - JSON Parse Error: {}",
+                                 __func__, glz::format_error(ec, res.body));
+               continue;
+            }
+
+            // Received valid collections_
+            sucessfulCollectionGet = true;
+
+            PlexNameToIdMap nameToIdMap;
+            nameToIdMap.reserve(serverResponse.response.data.size());
+
+            for (auto& item : serverResponse.response.data)
+            {
+               nameToIdMap.emplace(std::move(item.title), std::move(item.key));
+            }
+
+            workingCollections_.emplace(id, std::move(nameToIdMap));
+         }
+
+         if (sucessfulCollectionGet)
          {
             std::unique_lock lock(dataLock);
-            collections = std::move(newMap);
+            std::swap(workingCollections_, collections_);
+            workingCollections_.clear();
          }
          else
          {
-            parent.LogWarning("{} - Keeping stale collection data due to fetch failures", __func__);
+            parent_.LogWarning("{} - Keeping stale collection data due to fetch failures", __func__);
          }
       }
 
@@ -170,8 +175,8 @@ namespace warp
       {
          bool refreshLibraries = false;
          {
-            std::shared_lock lock(dataLock);
-            if (forceRefresh || libraries.empty()) refreshLibraries = true;
+            std::unique_lock lock(dataLock);
+            if (forceRefresh || libraries_.empty()) refreshLibraries = true;
          }
          if (refreshLibraries) RebuildLibraryMap();
       }
@@ -182,8 +187,8 @@ namespace warp
 
          // Scope around the lock
          {
-            std::shared_lock lock(dataLock);
-            if (forceRefresh || collections.empty()) refreshCollections = true;
+            std::unique_lock lock(dataLock);
+            if (forceRefresh || collections_.empty()) refreshCollections = true;
          }
          if (refreshCollections) RebuildCollectionMap();
       }
@@ -191,22 +196,22 @@ namespace warp
       void RefreshCache(bool forceRefresh)
       {
          UpdateRequiredCache(forceRefresh);
-         if (enableExtraCache) UpdateExtraCache(forceRefresh);
+         if (enableExtraCache_) UpdateExtraCache(forceRefresh);
       }
 
       std::optional<std::string> GetLibraryId(std::string_view libraryName) const
       {
          std::shared_lock lock(dataLock);
-         auto iter = libraries.find(libraryName);
-         return iter == libraries.end() ? std::nullopt : std::make_optional(iter->second);
+         auto iter = libraries_.find(libraryName);
+         return iter == libraries_.end() ? std::nullopt : std::make_optional(iter->second);
       }
 
       // Returns the collection api path
       std::string GetCollectionKey(std::string_view library, std::string_view collection)
       {
-         if (!enableExtraCache)
+         if (!enableExtraCache_)
          {
-            parent.LogWarning("{} called but extra cache not enabled", __func__);
+            parent_.LogWarning("{} called but extra cache not enabled", __func__);
             return {};
          }
 
@@ -215,8 +220,8 @@ namespace warp
          auto libraryId = GetLibraryId(library);
          if (!libraryId) return {}; // Returns a "null" node
 
-         auto iter = collections.find(*libraryId);
-         if (iter == collections.end()) return {};
+         auto iter = collections_.find(*libraryId);
+         if (iter == collections_.end()) return {};
 
          auto subIter = iter->second.find(collection);
          if (subIter == iter->second.end()) return {};
@@ -226,17 +231,17 @@ namespace warp
 
       std::optional<PlexSearchResults> SearchItem(std::string_view name)
       {
-         const auto apiPath = parent.BuildApiParamsPath(API_SEARCH, {
+         const auto apiPath = parent_.BuildApiParamsPath(API_SEARCH, {
             {"query", name}
          });
 
-         auto res = parent.Get(apiPath, headers);
-         if (!parent.IsHttpSuccess(__func__, res)) return std::nullopt;
+         auto res = parent_.Get(apiPath, headers_);
+         if (!parent_.IsHttpSuccess(__func__, res)) return std::nullopt;
 
          JsonPlexResponse<JsonPlexSearchResult> serverResponse;
          if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
          {
-            parent.LogWarning("{} - JSON Parse Error: {}",
+            parent_.LogWarning("{} - JSON Parse Error: {}",
                               __func__, glz::format_error(ec, res.body));
             return std::nullopt;
          }
@@ -302,8 +307,8 @@ namespace warp
                 .url = serverConfig.url,
                 .apiKey = serverConfig.api_key,
                 .className = "PlexApi",
-                .ansiiCode = warp::ANSI_CODE_PLEX,
-                .prettyName = warp::GetServerName(warp::GetFormattedPlex(), serverConfig.server_name)})
+                .ansiiCode = ANSI_CODE_PLEX,
+                .prettyName = GetServerName(GetFormattedPlex(), serverConfig.server_name)})
       , pimpl_(std::make_unique<PlexApiImpl>(*this, appName, version, serverConfig))
    {
    }
@@ -344,18 +349,18 @@ namespace warp
 
    bool PlexApi::GetValid()
    {
-      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers);
+      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers_);
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::string_view PlexApi::GetMediaPath() const
    {
-      return pimpl_->mediaPath;
+      return pimpl_->mediaPath_;
    }
 
    std::optional<std::string> PlexApi::GetServerReportedName()
    {
-      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers);
+      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexServerData> serverResponse;
@@ -391,7 +396,7 @@ namespace warp
       std::string path{API_LIBRARY_DATA};
       path += BuildCommaSeparatedList(ids);
 
-      auto res = Get(BuildApiPath(path), pimpl_->headers);
+      auto res = Get(BuildApiPath(path), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res)) return {};
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
@@ -424,7 +429,7 @@ namespace warp
    void PlexApi::SetLibraryScan(std::string_view libraryId)
    {
       auto apiPath = BuildApiPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId));
-      auto res = Get(apiPath, pimpl_->headers);
+      auto res = Get(apiPath, pimpl_->headers_);
       IsHttpSuccess(__func__, res);
    }
 
@@ -438,7 +443,7 @@ namespace warp
       auto collectionPath = pimpl_->GetCollectionKey(library, collectionName);
       if (collectionPath.empty()) return std::nullopt;
 
-      auto res = Get(BuildApiPath(collectionPath), pimpl_->headers);
+      auto res = Get(BuildApiPath(collectionPath), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
@@ -482,14 +487,14 @@ namespace warp
          {"state", "stopped"} // 'stopped' commits the time to the database
       });
 
-      auto res = Get(apiPath, pimpl_->headers);
+      auto res = Get(apiPath, pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          auto d = std::chrono::milliseconds(locationMs);
          std::chrono::hh_mm_ss timeSplit{std::chrono::duration_cast<std::chrono::seconds>(d)};
          LogError("{} - Failed to mark {} to play location {}:{}:{}",
                   __func__,
-                  warp::GetTag("ratingKey", ratingKey),
+                  GetTag("ratingKey", ratingKey),
                   timeSplit.hours().count(),
                   timeSplit.minutes().count(),
                   timeSplit.seconds().count());
@@ -506,10 +511,10 @@ namespace warp
          {"key", ratingKey}
       });
 
-      auto res = Get(apiPath, pimpl_->headers);
+      auto res = Get(apiPath, pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res))
       {
-         LogError("{} - Failed to mark {} as watched", __func__, warp::GetTag("ratingKey", ratingKey));
+         LogError("{} - Failed to mark {} as watched", __func__, GetTag("ratingKey", ratingKey));
          return false;
       }
 
