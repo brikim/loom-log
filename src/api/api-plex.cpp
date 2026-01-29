@@ -127,10 +127,9 @@ namespace warp
          bool sucessfulCollectionGet = false;
          for (const auto& id : libraryIds)
          {
-            static const ApiParams apiParams = {
+            std::string apiPath = parent_.BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), {
                {"type", std::format("{}", static_cast<int>(plex_search_collection))}
-            };
-            std::string apiPath = parent_.BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), apiParams);
+            });
 
             auto res = parent_.Get(apiPath, headers_);
             if (!parent_.IsHttpSuccess(__func__, res)) continue;
