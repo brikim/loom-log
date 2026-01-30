@@ -7,7 +7,6 @@
 #include "warp/utils.h"
 
 #include <glaze/glaze.hpp>
-#include <glaze/thread/threadpool.hpp>
 
 #include <format>
 #include <mutex>
@@ -35,8 +34,6 @@ namespace warp
       constexpr std::string_view MOVIES{"Movies"};
       constexpr std::string_view SEARCH_TERM{"SearchTerm"};
       constexpr std::string_view ENTRY_IDS{"EntryIds"};
-
-      constexpr size_t THREAD_POOL_SIZE{1};
    }
 
    struct EmbyApiImpl
@@ -55,12 +52,10 @@ namespace warp
       EmbyPathMap workingPathMap_;
 
       mutable std::shared_mutex dataLock_;
-      std::unique_ptr<glz::pool> threadPool_;
 
       EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
          : parent_(p)
          , mediaPath_(serverConfig.media_path)
-         , threadPool_(std::make_unique<glz::pool>(THREAD_POOL_SIZE))
       {
          std::string auth = std::format("MediaBrowser Client=\"{}\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
                                         appName,
@@ -74,15 +69,6 @@ namespace warp
          };
 
          UpdateRequiredCache(true);
-      }
-
-      void Shutdown()
-      {
-         if (threadPool_)
-         {
-            threadPool_->wait();
-            threadPool_.reset();
-         }
       }
 
       [[nodiscard]] bool GetLibraryMapEmpty() const
@@ -210,12 +196,12 @@ namespace warp
 
       void UpdateRequiredCache(bool forceRefresh)
       {
-         if (forceRefresh || GetLibraryMapEmpty()) threadPool_->emplace_back([this] { RebuildLibraryMap(); });
+         if (forceRefresh || GetLibraryMapEmpty()) RebuildLibraryMap();
       }
 
       void UpdateExtraCache(bool forceRefresh)
       {
-         if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged()) threadPool_->emplace_back([this] { RebuildPathMap(); });
+         if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged())  RebuildPathMap();
       }
 
       void RefreshCache(bool forceRefresh)
@@ -296,11 +282,6 @@ namespace warp
       fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
 
       return tasks;
-   }
-
-   void EmbyApi::Shutdown()
-   {
-      pimpl_->Shutdown();
    }
 
    std::string_view EmbyApi::GetApiBase() const

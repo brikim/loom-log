@@ -7,7 +7,6 @@
 #include "warp/utils.h"
 
 #include <glaze/glaze.hpp>
-#include <glaze/thread/threadpool.hpp>
 
 #include <charconv>
 #include <cmath>
@@ -36,8 +35,6 @@ namespace warp
       constexpr std::string_view ATTR_KEY{"key"};
       constexpr std::string_view ATTR_TITLE{"title"};
       constexpr std::string_view ATTR_FILE{"file"};
-
-      constexpr size_t THREAD_POOL_SIZE{1};
    }
 
    struct PlexApiImpl
@@ -58,12 +55,9 @@ namespace warp
       PlexIdToIdMap collections_;
       PlexIdToIdMap workingCollections_;
 
-      std::unique_ptr<glz::pool> threadPool_;
-
       PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
          : parent_(p)
          , mediaPath_(serverConfig.media_path)
-         , threadPool_(std::make_unique<glz::pool>(THREAD_POOL_SIZE))
       {
          headers_ = {
             {"X-Plex-Token", serverConfig.api_key},
@@ -79,15 +73,6 @@ namespace warp
       {
          enableExtraCache_ = true;
          UpdateExtraCache(true);
-      }
-
-      void Shutdown()
-      {
-         if (threadPool_)
-         {
-            threadPool_->wait();
-            threadPool_.reset();
-         }
       }
 
       void RebuildLibraryMap()
@@ -190,7 +175,7 @@ namespace warp
             std::unique_lock lock(dataLock);
             if (forceRefresh || libraries_.empty()) refreshLibraries = true;
          }
-         if (refreshLibraries) threadPool_->emplace_back([this]() { RebuildLibraryMap(); });
+         if (refreshLibraries) RebuildLibraryMap();
       }
 
       void UpdateExtraCache(bool forceRefresh)
@@ -202,7 +187,7 @@ namespace warp
             std::unique_lock lock(dataLock);
             if (forceRefresh || collections_.empty()) refreshCollections = true;
          }
-         if (refreshCollections) threadPool_->emplace_back([this]() { RebuildCollectionMap(); });
+         if (refreshCollections) RebuildCollectionMap();
       }
 
       void RefreshCache(bool forceRefresh)
@@ -330,11 +315,6 @@ namespace warp
    void PlexApi::EnableExtraCaching()
    {
       pimpl_->EnableExtraCaching();
-   }
-
-   void PlexApi::Shutdown()
-   {
-      pimpl_->Shutdown();
    }
 
    std::optional<std::vector<Task>> PlexApi::GetTaskList()
