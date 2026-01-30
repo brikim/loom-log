@@ -9,13 +9,13 @@
 #include "warp/types.h"
 
 #include <memory>
-#include <ranges>
-#include <string>
 #include <string_view>
 #include <vector>
 
 namespace warp
 {
+   struct ApiManagerImpl;
+
    class ApiManager
    {
    public:
@@ -23,61 +23,23 @@ namespace warp
                  std::string_view version,
                  const std::vector<ServerConfig>& plexConfigs,
                  const std::vector<ServerConfig>& embyConfigs);
-      virtual ~ApiManager() = default;
+      virtual ~ApiManager();
 
       // Enable api caching this is needed for some functionality
       void EnableExtraCaching();
 
       void GetTasks(std::vector<Task>& tasks);
 
+      // Shutdown the api manager
+      void Shutdown();
+
       [[nodiscard]] PlexApi* GetPlexApi(std::string_view name) const;
       [[nodiscard]] EmbyApi* GetEmbyApi(std::string_view name) const;
       [[nodiscard]] TautulliApi* GetTautulliApi(std::string_view name) const;
       [[nodiscard]] JellystatApi* GetJellystatApi(std::string_view name) const;
-      [[nodiscard]] ApiBase* GetApi(warp::ApiType type, std::string_view name) const;
+      [[nodiscard]] ApiBase* GetApi(ApiType type, std::string_view name) const;
 
    private:
-      void SetupPlexApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& serverConfigs);
-      void SetupEmbyApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& serverConfigs);
-
-      void LogServerConnectionSuccess(std::string_view serverName, ApiBase* api);
-      void LogServerConnectionError(std::string_view serverName, ApiBase* api);
-
-      template <typename ApiT, typename ContainerT>
-      ApiT* InitializeApi(std::string_view appName, std::string_view version, ContainerT& container, const ServerConfig& config, std::string_view logName)
-      {
-         auto& api = container.emplace_back(std::make_unique<ApiT>(appName, version, config));
-         api->GetValid() ? LogServerConnectionSuccess(logName, api.get()) : LogServerConnectionError(logName, api.get());
-         return api.get();
-      }
-
-      template <typename ContainerT>
-      void InitializeTasks(ContainerT& container, std::vector<Task>& tasks)
-      {
-         for (auto& api : container)
-         {
-            auto taskList = api->GetTaskList();
-            if (taskList)
-            {
-               for (const auto& task : *taskList) tasks.emplace_back(task);
-            }
-         }
-      }
-
-      // In header (private):
-      template <typename T>
-      [[nodiscard]] T* FindApi(const std::vector<std::unique_ptr<T>>& container, std::string_view name) const
-      {
-         auto it = std::ranges::find_if(container, [name](const auto& api) {
-            return api->GetName() == name;
-         });
-         return it != container.end() ? it->get() : nullptr;
-      }
-
-      std::vector<std::unique_ptr<PlexApi>> plexApis_;
-      std::vector<std::unique_ptr<EmbyApi>> embyApis_;
-      std::vector<std::unique_ptr<TautulliApi>> tautulliApis_;
-      std::vector<std::unique_ptr<JellystatApi>> jellystatApis_;
-
+      std::unique_ptr<ApiManagerImpl> pimpl_;
    };
 }

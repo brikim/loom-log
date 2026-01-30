@@ -9,7 +9,6 @@ namespace warp
    struct JellystatHistoryItem
    {
       std::string name;
-      std::string fullName;
       std::string id;
       std::string user;
       std::string watchTime;

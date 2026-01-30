@@ -7,6 +7,7 @@
 #include "warp/utils.h"
 
 #include <glaze/glaze.hpp>
+#include <glaze/thread/threadpool.hpp>
 
 #include <format>
 #include <mutex>
@@ -34,6 +35,8 @@ namespace warp
       constexpr std::string_view MOVIES{"Movies"};
       constexpr std::string_view SEARCH_TERM{"SearchTerm"};
       constexpr std::string_view ENTRY_IDS{"EntryIds"};
+
+      constexpr size_t THREAD_POOL_SIZE{1};
    }
 
    struct EmbyApiImpl
@@ -52,10 +55,12 @@ namespace warp
       EmbyPathMap workingPathMap_;
 
       mutable std::shared_mutex dataLock_;
+      std::unique_ptr<glz::pool> threadPool_;
 
       EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
          : parent_(p)
          , mediaPath_(serverConfig.media_path)
+         , threadPool_(std::make_unique<glz::pool>(THREAD_POOL_SIZE))
       {
          std::string auth = std::format("MediaBrowser Client=\"{}\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
                                         appName,
@@ -69,6 +74,15 @@ namespace warp
          };
 
          UpdateRequiredCache(true);
+      }
+
+      void Shutdown()
+      {
+         if (threadPool_)
+         {
+            threadPool_->wait();
+            threadPool_.reset();
+         }
       }
 
       [[nodiscard]] bool GetLibraryMapEmpty() const
@@ -88,7 +102,7 @@ namespace warp
       {
          parent_.LogTrace("Rebuilding Path Map");
 
-         static const warp::ApiParams apiParams = {
+         static const ApiParams apiParams = {
             {"Recursive", "true"},
             {"IncludeItemTypes", "Movie,Episode"},
             {"Fields", "Path,DateModified"},
@@ -168,7 +182,7 @@ namespace warp
 
       bool HasLibraryChanged()
       {
-         static const warp::ApiParams apiParams = {
+         static const ApiParams apiParams = {
             {"Recursive", "true"},
             {"IncludeItemTypes", "Movie,Episode"},
             {"SortBy", "DateModified"},
@@ -196,16 +210,12 @@ namespace warp
 
       void UpdateRequiredCache(bool forceRefresh)
       {
-         bool refreshLibraries = false;
-         {
-            if (forceRefresh || GetLibraryMapEmpty()) refreshLibraries = true;
-         }
-         if (refreshLibraries) RebuildLibraryMap();
+         if (forceRefresh || GetLibraryMapEmpty()) threadPool_->emplace_back([this] { RebuildLibraryMap(); });
       }
 
       void UpdateExtraCache(bool forceRefresh)
       {
-         if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged()) RebuildPathMap();
+         if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged()) threadPool_->emplace_back([this] { RebuildPathMap(); });
       }
 
       void RefreshCache(bool forceRefresh)
@@ -257,8 +267,8 @@ namespace warp
             .url = serverConfig.url,
             .apiKey = serverConfig.api_key,
             .className = "EmbyApi",
-            .ansiiCode = warp::ANSI_CODE_EMBY,
-            .prettyName = warp::GetServerName(warp::GetFormattedEmby(), serverConfig.server_name)})
+            .ansiiCode = ANSI_CODE_EMBY,
+            .prettyName = GetServerName(GetFormattedEmby(), serverConfig.server_name)})
       , pimpl_(std::make_unique<EmbyApiImpl>(*this, appName, version, serverConfig))
    {
    }
@@ -286,6 +296,11 @@ namespace warp
       fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
 
       return tasks;
+   }
+
+   void EmbyApi::Shutdown()
+   {
+      pimpl_->Shutdown();
    }
 
    std::string_view EmbyApi::GetApiBase() const
@@ -388,7 +403,7 @@ namespace warp
          return returnItem;
       }
 
-      LogWarning("{} returned no valid results {}", __func__, warp::GetTag("search", name));
+      LogWarning("{} returned no valid results {}", __func__, GetTag("search", name));
       return std::nullopt;
    }
 
@@ -492,7 +507,7 @@ namespace warp
 
    std::optional<EmbyPlaylist> EmbyApi::GetPlaylist(std::string_view name)
    {
-      static const warp::ApiParams apiParams = {
+      static const ApiParams apiParams = {
          {"IncludeItemTypes", "Playlist"}
       };
       auto item = GetItem(EmbySearchType::name, name, apiParams);
@@ -569,7 +584,7 @@ namespace warp
 
    void EmbyApi::SetLibraryScan(std::string_view libraryId)
    {
-      static const warp::ApiParams apiParams = {
+      static const ApiParams apiParams = {
          {"Recursive", "true"},
          {"ImageRefreshMode", "Default"},
          {"ReplaceAllImages", "false"},

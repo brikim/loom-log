@@ -42,8 +42,8 @@ namespace warp
             .url = serverConfig.tracker_url,
             .apiKey = serverConfig.tracker_api_key,
             .className = "JellystatApi",
-            .ansiiCode = warp::ANSI_CODE_JELLYSTAT,
-            .prettyName = warp::GetServerName(warp::GetFormattedJellystat(), serverConfig.server_name)})
+            .ansiiCode = ANSI_CODE_JELLYSTAT,
+            .prettyName = GetServerName(GetFormattedJellystat(), serverConfig.server_name)})
       , pimpl_(std::make_unique<JellystatApiImpl>(*this, appName, version))
    {
    }
@@ -92,7 +92,6 @@ namespace warp
       {
          auto& returnItem = returnResponse.items.emplace_back();
          returnItem.name = std::move(item.name);
-         returnItem.fullName = std::move(item.GetFullName());
          returnItem.id = std::move(item.id);
          returnItem.user = std::move(item.user);
          returnItem.watchTime = std::move(item.watchTime);

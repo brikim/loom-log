@@ -206,6 +206,11 @@ namespace warp
       return std::nullopt;
    }
 
+   void ApiBase::Shutdown()
+   {
+      // do nothing by default
+   }
+
    const std::string& ApiBase::GetName() const
    {
       return pimpl_->name_;

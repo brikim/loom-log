@@ -25,6 +25,8 @@ namespace warp
       // Api tasks are optional. Api's can override to perform a task
       [[nodiscard]] virtual std::optional<std::vector<Task>> GetTaskList();
 
+      virtual void Shutdown();
+
       [[nodiscard]] const std::string& GetName() const;
       [[nodiscard]] const std::string& GetPrettyName() const;
       [[nodiscard]] const std::string& GetUrl() const;

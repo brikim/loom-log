@@ -18,11 +18,6 @@ namespace warp
       std::optional<std::string> seriesName;
       std::optional<std::string> episodeId;
 
-      std::string GetFullName() const
-      {
-         return seriesName ? (*seriesName + " - " + name) : name;
-      }
-
       struct glaze
       {
          // Glaze knows how to handle chrono types automatically
