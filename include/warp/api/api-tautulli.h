@@ -11,8 +11,6 @@
 
 namespace warp
 {
-   struct TautulliApiImpl;
-
    class TautulliApi : public ApiBase
    {
    public:
@@ -30,12 +28,17 @@ namespace warp
       [[nodiscard]] std::optional<TautulliHistoryItems> GetWatchHistoryForUser(std::string_view user,
                                                                                std::string_view dateForHistory,
                                                                                int64_t epochHistoryTime);
+      [[nodiscard]] std::optional<TautulliHistoryItems> GetWatchHistoryForUserAndLibrary(std::string_view user,
+                                                                                         std::string_view libraryId,
+                                                                                         std::string_view dateForHistory,
+                                                                                         int64_t epochHistoryTime);
 
    protected:
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
 
    private:
+      struct TautulliApiImpl;
       friend struct TautulliApiImpl;
       std::unique_ptr<TautulliApiImpl> pimpl_;
    };

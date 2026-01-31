@@ -9,8 +9,6 @@
 
 namespace warp
 {
-   struct JellystatApiImpl;
-
    class JellystatApi : public ApiBase
    {
    public:
@@ -22,12 +20,14 @@ namespace warp
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
 
       [[nodiscard]] std::optional<JellystatHistoryItems> GetWatchHistoryForUser(std::string_view userId);
+      [[nodiscard]] std::optional<JellystatHistoryItems> GetWatchHistoryForLibrary(std::string_view libraryId);
 
    protected:
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
 
    private:
+      struct JellystatApiImpl;
       friend struct JellystatApiImpl;
       std::unique_ptr<JellystatApiImpl> pimpl_;
    };

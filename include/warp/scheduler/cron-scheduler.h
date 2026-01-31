@@ -6,8 +6,6 @@
 
 namespace warp
 {
-   class CronSchedulerImpl;
-
    class CronScheduler
    {
    public:
@@ -21,6 +19,7 @@ namespace warp
       void Shutdown();
 
    private:
+      class CronSchedulerImpl;
       std::unique_ptr<CronSchedulerImpl> pimpl_;
    };
 }

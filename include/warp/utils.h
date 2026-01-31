@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cwctype>
 #include <filesystem>
 #include <format>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -104,5 +106,15 @@ namespace warp
 
       std::string out = result.generic_string();
       return out.empty() ? std::string(path) : out;
+   }
+
+   inline std::optional<std::chrono::system_clock::time_point> ConvertIsoToTimePoint(const std::string& isoString)
+   {
+      std::chrono::system_clock::time_point tp;
+      std::stringstream ss(isoString);
+
+      std::chrono::from_stream(ss, "%FT%TZ", tp);
+      if (ss.fail()) return std::nullopt;
+      return tp;
    }
 }

@@ -60,6 +60,6 @@ namespace warp
       int64_t runTimeTicks{0};
       int64_t playbackPositionTicks{0};
       int32_t play_count{0};
-      bool played{false};
+      bool watched{false};
    };
 }

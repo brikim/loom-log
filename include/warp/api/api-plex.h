@@ -10,8 +10,6 @@
 
 namespace warp
 {
-   struct PlexApiImpl;
-
    class PlexApi : public ApiBase
    {
    public:
@@ -27,7 +25,9 @@ namespace warp
       [[nodiscard]] std::string_view GetMediaPath() const;
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
+
       [[nodiscard]] std::optional<PlexSearchResults> GetItemInfo(std::string_view name);
+      [[nodiscard]] std::optional<std::string> GetItemPath(std::string_view id);
       [[nodiscard]] std::unordered_map<std::string, std::string> GetItemsPaths(const std::vector<std::string>& ids);
 
       // Returns if the collection in the library is valid on this server
@@ -47,6 +47,7 @@ namespace warp
       std::string_view GetApiTokenName() const override;
 
    private:
+      struct PlexApiImpl;
       friend struct PlexApiImpl;
       std::unique_ptr<PlexApiImpl> pimpl_;
    };

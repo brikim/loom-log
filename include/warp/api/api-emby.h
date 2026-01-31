@@ -12,8 +12,6 @@
 
 namespace warp
 {
-   struct EmbyApiImpl;
-
    class EmbyApi : public ApiBase
    {
    public:
@@ -58,6 +56,7 @@ namespace warp
       std::string_view GetApiTokenName() const override;
 
    private:
+      struct EmbyApiImpl;
       friend struct EmbyApiImpl;
       std::unique_ptr<EmbyApiImpl> pimpl_;
    };
