@@ -5,6 +5,7 @@
 #include "warp/api/api-types.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -24,7 +25,7 @@ namespace warp
 
       // Returns true if the server is reachable and the API key is valid
       [[nodiscard]] bool GetValid() override;
-      [[nodiscard]] std::string_view GetMediaPath() const;
+      [[nodiscard]] const std::filesystem::path& GetMediaPath() const;
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName);
 
@@ -48,8 +49,8 @@ namespace warp
       // Tell Emby to scan the passed in library
       void SetLibraryScan(std::string_view libraryId);
 
-      [[nodiscard]] bool GetPathMapEmpty() const;
-      [[nodiscard]] std::optional<std::string> GetIdFromPathMap(const std::string& path);
+      [[nodiscard]] bool GetPathCacheEmpty() const;
+      [[nodiscard]] std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
 
    protected:
       std::string_view GetApiBase() const override;

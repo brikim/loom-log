@@ -40,7 +40,7 @@ namespace warp
    {
       EmbyApi& parent_;
       Headers headers_;
-      std::string mediaPath_;
+      std::filesystem::path mediaPath_;
 
       std::string lastSyncTimestamp_;
 
@@ -51,6 +51,7 @@ namespace warp
       EmbyNameToIdMap users_;
       EmbyNameToIdMap workingUsers_;
 
+      using EmbyPathMap = std::unordered_map<std::filesystem::path, std::string, PathHash>;
       bool enableExtraCache_{false};
       EmbyPathMap pathMap_;
       EmbyPathMap workingPathMap_;
@@ -65,8 +66,8 @@ namespace warp
       std::optional<std::string> GetLibraryId(std::string_view libraryName);
       std::optional<EmbyUserData> GetUser(std::string_view name);
 
-      bool GetPathMapEmpty() const;
-      std::optional<std::string> GetIdFromPathMap(const std::string& path);
+      bool GetPathCacheEmpty() const;
+      std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
 
       void RebuildPathMap();
       void RebuildLibraryMap();
@@ -83,13 +84,13 @@ namespace warp
 
    EmbyApi::EmbyApiImpl::EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : parent_(p)
-      , mediaPath_(serverConfig.media_path)
+      , mediaPath_(serverConfig.mediaPath)
    {
       std::string auth = std::format("MediaBrowser Client=\"{}\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
                                      appName,
                                      "6e7417e2-8d76-4b1f-9c23-018274959a37",
                                      version,
-                                     serverConfig.api_key);
+                                     serverConfig.apiKey);
       headers_ = {
          {"X-Emby-Authorization", auth},
          {"Accept", "application/json"},
@@ -100,12 +101,12 @@ namespace warp
    }
 
    EmbyApi::EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-      : ApiBase(ApiBaseData{.name = serverConfig.server_name,
+      : ApiBase(ApiBaseData{.name = serverConfig.serverName,
             .url = serverConfig.url,
-            .apiKey = serverConfig.api_key,
+            .apiKey = serverConfig.apiKey,
             .className = "EmbyApi",
             .ansiiCode = ANSI_CODE_EMBY,
-            .prettyName = GetServerName(GetFormattedEmby(), serverConfig.server_name)})
+            .prettyName = GetServerName(GetFormattedEmby(), serverConfig.serverName)})
       , pimpl_(std::make_unique<EmbyApiImpl>(*this, appName, version, serverConfig))
    {
    }
@@ -151,7 +152,7 @@ namespace warp
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
-   std::string_view EmbyApi::GetMediaPath() const
+   const std::filesystem::path& EmbyApi::GetMediaPath() const
    {
       return pimpl_->mediaPath_;
    }
@@ -436,18 +437,18 @@ namespace warp
       IsHttpSuccess(__func__, res);
    }
 
-   bool EmbyApi::EmbyApiImpl::GetPathMapEmpty() const
+   bool EmbyApi::EmbyApiImpl::GetPathCacheEmpty() const
    {
       std::lock_guard lock(dataLock_);
       return pathMap_.empty();
    }
 
-   bool EmbyApi::GetPathMapEmpty() const
+   bool EmbyApi::GetPathCacheEmpty() const
    {
-      return pimpl_->GetPathMapEmpty();
+      return pimpl_->GetPathCacheEmpty();
    }
 
-   std::optional<std::string> EmbyApi::EmbyApiImpl::GetIdFromPathMap(const std::string& path)
+   std::optional<std::string> EmbyApi::EmbyApiImpl::GetIdFromPath(const std::filesystem::path& path)
    {
       if (!enableExtraCache_)
       {
@@ -458,16 +459,17 @@ namespace warp
       std::lock_guard lock(dataLock_);
 
       // Look up the item once
-      if (auto it = pathMap_.find(path); it != pathMap_.end())
+      if (auto it = pathMap_.find(path);
+          it != pathMap_.end())
       {
          return it->second;
       }
       return std::nullopt;
    }
 
-   std::optional<std::string> EmbyApi::GetIdFromPathMap(const std::string& path)
+   std::optional<std::string> EmbyApi::GetIdFromPath(const std::filesystem::path& path)
    {
-      return pimpl_->GetIdFromPathMap(path);
+      return pimpl_->GetIdFromPath(path);
    }
 
    bool EmbyApi::EmbyApiImpl::GetLibraryMapEmpty() const
@@ -640,7 +642,7 @@ namespace warp
 
    void EmbyApi::EmbyApiImpl::UpdateExtraCache(bool forceRefresh)
    {
-      if (forceRefresh || GetPathMapEmpty() || HasLibraryChanged())  RebuildPathMap();
+      if (forceRefresh || GetPathCacheEmpty() || HasLibraryChanged())  RebuildPathMap();
    }
 
    void EmbyApi::EmbyApiImpl::RefreshCache(bool forceRefresh)

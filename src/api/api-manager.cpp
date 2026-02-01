@@ -22,7 +22,7 @@ namespace warp
          {
             InitializeApi<PlexApi>(appName, version, plexApis_, server, GetFormattedPlex());
 
-            if (!server.tracker_url.empty())
+            if (!server.trackerUrl.empty())
             {
                InitializeApi<TautulliApi>(appName, version, tautulliApis_, server, GetFormattedTautulli());
             }
@@ -35,7 +35,7 @@ namespace warp
          {
             InitializeApi<EmbyApi>(appName, version, embyApis_, server, GetFormattedEmby());
 
-            if (!server.tracker_url.empty())
+            if (!server.trackerUrl.empty())
             {
                InitializeApi<JellystatApi>(appName, version, jellystatApis_, server, GetFormattedJellystat());
             }

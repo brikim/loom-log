@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <string>
 
@@ -33,6 +34,14 @@ namespace warp
       size_t operator()(const std::string& s) const
       {
          return std::hash<std::string>{}(s);
+      }
+   };
+
+   struct PathHash
+   {
+      std::size_t operator()(const std::filesystem::path& p) const
+      {
+         return std::filesystem::hash_value(p);
       }
    };
 }

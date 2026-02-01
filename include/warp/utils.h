@@ -74,22 +74,20 @@ namespace warp
       return it != str.end();
    }
 
-   inline std::string GetDisplayFolder(std::string_view path)
+   inline std::filesystem::path GetDisplayFolder(const std::filesystem::path& path)
    {
-      namespace fs = std::filesystem;
       if (path.empty()) return "";
 
-      fs::path p(path);
-
+      std::filesystem::path p(path);
       if (p.has_relative_path() && p.filename().empty())
       {
-         p = p.parent_path();
+         p = path.parent_path();
       }
 
       const bool hasFile = p.has_extension();
-      const fs::path folderPath = hasFile ? p.parent_path() : p;
+      const std::filesystem::path folderPath = hasFile ? p.parent_path() : p;
 
-      fs::path result;
+      std::filesystem::path result;
       if (ContainsSeason(folderPath.filename().native()) && folderPath.has_parent_path())
       {
          result = folderPath.parent_path().filename() / folderPath.filename();
@@ -104,8 +102,7 @@ namespace warp
          result = folderPath.filename();
       }
 
-      std::string out = result.generic_string();
-      return out.empty() ? std::string(path) : out;
+      return result.empty() ? path : result;
    }
 
    inline std::optional<std::chrono::system_clock::time_point> ConvertIsoToTimePoint(const std::string& isoString)

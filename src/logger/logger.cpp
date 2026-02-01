@@ -76,7 +76,7 @@ namespace warp
 
    Logger::~Logger() = default;
 
-   void Logger::InitFileLogging(std::string_view path, std::string_view filename)
+   void Logger::InitFileLogging(const std::filesystem::path& path, std::string_view filename)
    {
       std::filesystem::path p(path);
       p /= filename;

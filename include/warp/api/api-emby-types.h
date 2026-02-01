@@ -1,14 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace warp
 {
-   using EmbyPathMap = std::unordered_map<std::string, std::string>;
-
    enum class EmbySearchType
    {
       id,
@@ -27,7 +26,7 @@ namespace warp
    {
       std::string name;
       std::string id;
-      std::string path;
+      std::filesystem::path path;
       std::string type;
       EmbyItemSeries series;
       uint64_t runTimeTicks{0u};
@@ -55,7 +54,7 @@ namespace warp
 
    struct EmbyPlayState
    {
-      std::string path;
+      std::filesystem::path path;
       float percentage{0.0f};
       int64_t runTimeTicks{0};
       int64_t playbackPositionTicks{0};

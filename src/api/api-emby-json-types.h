@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,7 @@ namespace warp
       std::string Id;
       std::string Type;
       std::string Name;
-      std::string Path;
+      std::filesystem::path Path;
       std::string SeriesName;
       uint32_t ParentIndexNumber{0};
       uint32_t IndexNumber{0};
@@ -30,7 +31,7 @@ namespace warp
    struct PathRebuildItem
    {
       std::string Id;
-      std::string Path;
+      std::filesystem::path Path;
       std::string DateModified;
    };
 
@@ -80,7 +81,7 @@ namespace warp
    {
       std::string Name;
       std::string Type;
-      std::string Path;
+      std::filesystem::path Path;
       int64_t RunTimeTicks{0};
       JsonEmbyPlaystateUserData UserData;
    };

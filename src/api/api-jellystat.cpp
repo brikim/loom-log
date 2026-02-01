@@ -41,12 +41,12 @@ namespace warp
    }
 
    JellystatApi::JellystatApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-      : ApiBase(ApiBaseData{.name = serverConfig.server_name,
-            .url = serverConfig.tracker_url,
-            .apiKey = serverConfig.tracker_api_key,
+      : ApiBase(ApiBaseData{.name = serverConfig.serverName,
+            .url = serverConfig.trackerUrl,
+            .apiKey = serverConfig.trackerApiKey,
             .className = "JellystatApi",
             .ansiiCode = ANSI_CODE_JELLYSTAT,
-            .prettyName = GetServerName(GetFormattedJellystat(), serverConfig.server_name)})
+            .prettyName = GetServerName(GetFormattedJellystat(), serverConfig.serverName)})
       , pimpl_(std::make_unique<JellystatApiImpl>(*this, appName, version))
    {
    }

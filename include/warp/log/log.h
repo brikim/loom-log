@@ -2,12 +2,13 @@
 
 #include "warp/log/logger.h"
 
+#include <filesystem>
 #include <string_view>
 
 namespace warp::log
 {
    // Init file logging
-   inline void InitFileLogging(std::string_view path, std::string_view filename)
+   inline void InitFileLogging(const std::filesystem::path& path, std::string_view filename)
    {
       Logger::Instance().InitFileLogging(path, filename);
    }

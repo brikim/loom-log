@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -17,11 +18,11 @@ namespace warp
 
    struct ServerConfig
    {
-      std::string server_name;
+      std::string serverName;
       std::string url;
-      std::string api_key;
-      std::string tracker_url;
-      std::string tracker_api_key;
-      std::string media_path;
+      std::string apiKey;
+      std::string trackerUrl;
+      std::string trackerApiKey;
+      std::filesystem::path mediaPath;
    };
 }

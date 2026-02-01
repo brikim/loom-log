@@ -31,7 +31,7 @@ namespace warp
    struct PlexCollectionItem
    {
       std::string title;
-      std::vector<std::string> paths;
+      std::vector<std::filesystem::path> paths;
    };
 
    struct PlexCollection
@@ -43,7 +43,7 @@ namespace warp
    struct PlexSearchResult
    {
       std::string ratingKey;
-      std::vector<std::string> paths;
+      std::vector<std::filesystem::path> paths;
       std::string title;
       std::string libraryName;
       int64_t durationMs{0};

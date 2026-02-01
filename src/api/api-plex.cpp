@@ -42,7 +42,7 @@ namespace warp
       PlexApi& parent_;
       Headers headers_;
 
-      std::string mediaPath_;
+      std::filesystem::path mediaPath_;
       bool enableExtraCache_{false};
 
       mutable std::shared_mutex dataLock_;
@@ -76,10 +76,10 @@ namespace warp
 
    PlexApi::PlexApiImpl::PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : parent_(p)
-      , mediaPath_(serverConfig.media_path)
+      , mediaPath_(serverConfig.mediaPath)
    {
       headers_ = {
-         {"X-Plex-Token", serverConfig.api_key},
+         {"X-Plex-Token", serverConfig.apiKey},
          {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
          {"Accept", "application/json"},
          {"User-Agent", std::format("{}/{}", appName, version)}
@@ -89,12 +89,12 @@ namespace warp
    }
 
    PlexApi::PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-      : ApiBase(ApiBaseData{.name = serverConfig.server_name,
+      : ApiBase(ApiBaseData{.name = serverConfig.serverName,
                 .url = serverConfig.url,
-                .apiKey = serverConfig.api_key,
+                .apiKey = serverConfig.apiKey,
                 .className = "PlexApi",
                 .ansiiCode = ANSI_CODE_PLEX,
-                .prettyName = GetServerName(GetFormattedPlex(), serverConfig.server_name)})
+                .prettyName = GetServerName(GetFormattedPlex(), serverConfig.serverName)})
       , pimpl_(std::make_unique<PlexApiImpl>(*this, appName, version, serverConfig))
    {
    }
@@ -145,7 +145,7 @@ namespace warp
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
-   std::string_view PlexApi::GetMediaPath() const
+   const std::filesystem::path& PlexApi::GetMediaPath() const
    {
       return pimpl_->mediaPath_;
    }
@@ -262,18 +262,18 @@ namespace warp
       return pimpl_->SearchItem(name);
    }
 
-   std::optional<std::string> PlexApi::GetItemPath(std::string_view id)
+   std::optional<std::filesystem::path> PlexApi::GetItemPath(std::string_view id)
    {
       auto path = std::format("{}{}", API_LIBRARY_DATA, id);
       auto res = Get(BuildApiPath(path), pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return {};
+      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
          LogWarning("{} - JSON Parse Error: {}",
                     __func__, glz::format_error(ec, res.body));
-         return {};
+         return std::nullopt;
       }
 
       if (serverResponse.response.data.size() == 0) return std::nullopt;
@@ -291,12 +291,12 @@ namespace warp
       return std::nullopt;
    }
 
-   std::unordered_map<std::string, std::string> PlexApi::GetItemsPaths(const std::vector<std::string>& ids)
+   std::unordered_map<std::string, std::filesystem::path> PlexApi::GetItemsPaths(const std::vector<std::string>& ids)
    {
-      std::string path{API_LIBRARY_DATA};
-      path += BuildCommaSeparatedList(ids);
+      std::string apiPath{API_LIBRARY_DATA};
+      apiPath += BuildCommaSeparatedList(ids);
 
-      auto res = Get(BuildApiPath(path), pimpl_->headers_);
+      auto res = Get(BuildApiPath(apiPath), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res)) return {};
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
@@ -309,7 +309,7 @@ namespace warp
 
       if (serverResponse.response.data.size() == 0) return {};
 
-      std::unordered_map<std::string, std::string> results;
+      std::unordered_map<std::string, std::filesystem::path> results;
       results.reserve(ids.size());
 
       for (auto& data : serverResponse.response.data)

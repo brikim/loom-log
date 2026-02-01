@@ -2,6 +2,7 @@
 
 #include "warp/log/log-types.h"
 
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <string_view>
@@ -18,7 +19,7 @@ namespace warp
          return instance;
       }
 
-      void InitFileLogging(std::string_view path, std::string_view filename);
+      void InitFileLogging(const std::filesystem::path& path, std::string_view filename);
       void InitApprise(const AppriseLoggingConfig& config);
       void InitGotify(const GotifyLoggingConfig& config);
 

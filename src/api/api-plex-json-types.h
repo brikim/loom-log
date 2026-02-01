@@ -11,7 +11,7 @@ namespace warp
    // {
    struct JsonPlexPart
    {
-      std::string file;
+      std::filesystem::path file;
 
       static constexpr auto value = glz::object(
             "file", &JsonPlexPart::file
