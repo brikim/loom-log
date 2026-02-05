@@ -45,6 +45,7 @@ namespace warp
       Response Get(const std::string& path, const Headers& headers);
       Response Post(const std::string& path, const Headers& headers);
       Response Post(const std::string& path, const Headers& headers, const std::string& body, const std::string& contentType);
+      Response Delete(const std::string& path, const Headers& headers);
 
       void AddApiParam(std::string& url, const ApiParams& params) const;
       [[nodiscard]] std::string BuildApiPath(std::string_view path) const;

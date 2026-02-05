@@ -21,6 +21,7 @@ namespace warp
       uint32_t ParentIndexNumber{0};
       uint32_t IndexNumber{0};
       uint64_t RunTimeTicks{0};
+      std::vector<std::string> BackdropImageTags;
    };
 
    struct JsonEmbyItemsResponse
@@ -89,5 +90,13 @@ namespace warp
    struct JsonEmbyPlayStates
    {
       std::vector<JsonEmbyPlaystate> Items;
+   };
+
+   struct JsonEmbyBackdrop
+   {
+      std::string ImageType;
+      std::filesystem::path Path;
+      std::optional<int32_t> ImageIndex;
+
    };
 }

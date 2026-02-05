@@ -34,6 +34,7 @@ namespace warp
       constexpr std::string_view MOVIES{"Movies"};
       constexpr std::string_view SEARCH_TERM{"SearchTerm"};
       constexpr std::string_view ENTRY_IDS{"EntryIds"};
+      constexpr std::string_view BACKDROP("Backdrop");
    }
 
    struct EmbyApi::EmbyApiImpl
@@ -420,6 +421,73 @@ namespace warp
       auto apiPath{BuildApiPath(std::format("{}/{}/Items/{}/Move/{}", API_PLAYLISTS, playlistId, itemId, index))};
 
       auto res = Post(apiPath, pimpl_->headers_);
+      return IsHttpSuccess(__func__, res);
+   }
+
+   std::vector<EmbyItemBackdropImages> EmbyApi::GetAllItemsBackdrop()
+   {
+      static const ApiParams apiParams = {
+         {"Recursive", "true"},
+         {"IncludeItemTypes", "Movie,Series"},
+         {"IsMissing", "false"}
+      };
+      auto res = Get(BuildApiParamsPath(API_ITEMS, apiParams), pimpl_->headers_);
+      if (!IsHttpSuccess(__func__, res)) return {};
+
+      JsonEmbyItemsResponse response;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
+      {
+         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
+         return {};
+      }
+
+      std::vector<EmbyItemBackdropImages> returnVector;
+      returnVector.reserve(response.Items.size());
+      for (auto& item : response.Items)
+      {
+         returnVector.emplace_back(EmbyItemBackdropImages{
+            .name = std::move(item.Name),
+            .id = std::move(item.Id),
+            .backdropImageIds = std::move(item.BackdropImageTags)
+         });
+      }
+
+      return returnVector;
+   }
+
+   [[nodiscard]] std::vector<EmbyBackdrop> EmbyApi::GetBackdrops(std::string_view id)
+   {
+      const auto apiPath = BuildApiPath(std::format("/Items/{}/Images", id));
+      auto res = Get(apiPath, pimpl_->headers_);
+      if (!IsHttpSuccess(__func__, res)) return {};
+
+      std::vector<JsonEmbyBackdrop> response;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
+      {
+         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
+         return {};
+      }
+
+      std::vector<EmbyBackdrop> returnBackdrops;
+      for (auto& image : response)
+      {
+         if (image.ImageType == BACKDROP && image.ImageIndex)
+         {
+            returnBackdrops.emplace_back(EmbyBackdrop{
+               .index = *image.ImageIndex,
+               .path = std::move(image.Path)
+            });
+         }
+      }
+
+      return returnBackdrops;
+   }
+
+   bool EmbyApi::RemoveBackdropImage(std::string_view id, int32_t index)
+   {
+      const auto apiPath = BuildApiPath(std::format("/Items/{}/Images/Backdrop/{}", id, index));
+
+      auto res = Delete(apiPath, pimpl_->headers_);
       return IsHttpSuccess(__func__, res);
    }
 

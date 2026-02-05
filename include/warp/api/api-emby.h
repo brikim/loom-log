@@ -46,6 +46,10 @@ namespace warp
       bool RemovePlaylistItems(std::string_view playlistId, const std::vector<std::string>& removeIds);
       bool MovePlaylistItem(std::string_view playlistId, std::string_view itemId, uint32_t index);
 
+      [[nodiscard]] std::vector<EmbyItemBackdropImages> GetAllItemsBackdrop();
+      [[nodiscard]] std::vector<EmbyBackdrop> GetBackdrops(std::string_view id);
+      bool RemoveBackdropImage(std::string_view id, int32_t index);
+
       // Tell Emby to scan the passed in library
       void SetLibraryScan(std::string_view libraryId);
 

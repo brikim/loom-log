@@ -61,4 +61,17 @@ namespace warp
       int32_t play_count{0};
       bool watched{false};
    };
+
+   struct EmbyItemBackdropImages
+   {
+      std::string name;
+      std::string id;
+      std::vector<std::string> backdropImageIds;
+   };
+
+   struct EmbyBackdrop
+   {
+      int32_t index;
+      std::filesystem::path path;
+   };
 }

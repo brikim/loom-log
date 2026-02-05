@@ -362,4 +362,18 @@ namespace warp
          .error = pimpl_->ConvertError(res.error())
       };
    }
+
+   Response ApiBase::Delete(const std::string& path, const Headers& headers)
+   {
+      auto res = pimpl_->client_.Delete(path, pimpl_->GetHttpLibHeaders(headers));
+
+      if (!res) return pimpl_->GetInvalidResponse(res);
+
+      return Response{
+         .status = res->status,
+         .reason = std::move(res->reason),
+         .body = std::move(res->body),
+         .error = pimpl_->ConvertError(res.error())
+      };
+   }
 }
