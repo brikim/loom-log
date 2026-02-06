@@ -31,10 +31,15 @@ namespace warp
       constexpr std::string_view IDS{"Ids"};
       constexpr std::string_view PATH{"Path"};
       constexpr std::string_view MEDIA_TYPE{"MediaType"};
+      constexpr std::string_view RECURSIVE{"Recursive"};
       constexpr std::string_view MOVIES{"Movies"};
       constexpr std::string_view SEARCH_TERM{"SearchTerm"};
+      constexpr std::string_view FIELDS("Fields");
+      constexpr std::string_view IS_MISSING{"IsMissing"};
       constexpr std::string_view ENTRY_IDS{"EntryIds"};
       constexpr std::string_view BACKDROP("Backdrop");
+      constexpr std::string_view PARENT_ID("ParentId");
+      constexpr std::string_view INCLUDE_ITEM_TYPES("IncludeItemTypes");
    }
 
    struct EmbyApi::EmbyApiImpl
@@ -209,9 +214,9 @@ namespace warp
    std::optional<EmbyItem> EmbyApi::GetItem(EmbySearchType type, std::string_view name, const ApiParams& extraSearchArgs)
    {
       ApiParams params = {
-         {"Recursive", "true"},
+         {RECURSIVE, "true"},
          {pimpl_->GetSearchTypeStr(type), name},
-         {"Fields", "Path,SeriesName,RunTimeTicks"}
+         {FIELDS, "Path,SeriesName,RunTimeTicks"}
       };
       params.reserve(params.size() + extraSearchArgs.size());
       params.insert(params.end(), extraSearchArgs.begin(), extraSearchArgs.end());
@@ -305,7 +310,7 @@ namespace warp
    {
       const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_USERS, userId), {
          {IDS, itemId},
-         {"Fields", "Path,UserDataLastPlayedDate,UserDataPlayCount"}
+         {FIELDS, "Path,UserDataLastPlayedDate,UserDataPlayCount"}
       });
 
       auto res = Get(apiPath, pimpl_->headers_);
@@ -344,13 +349,13 @@ namespace warp
 
    bool EmbyApi::GetPlaylistExists(std::string_view name)
    {
-      return GetItem(EmbySearchType::name, name, {{"IncludeItemTypes", "Playlist"}}).has_value();
+      return GetItem(EmbySearchType::name, name, {{INCLUDE_ITEM_TYPES, "Playlist"}}).has_value();
    }
 
    std::optional<EmbyPlaylist> EmbyApi::GetPlaylist(std::string_view name)
    {
       static const ApiParams apiParams = {
-         {"IncludeItemTypes", "Playlist"}
+         {INCLUDE_ITEM_TYPES, "Playlist"}
       };
       auto item = GetItem(EmbySearchType::name, name, apiParams);
       if (!item.has_value()) return std::nullopt;
@@ -424,12 +429,13 @@ namespace warp
       return IsHttpSuccess(__func__, res);
    }
 
-   std::vector<EmbyItemBackdropImages> EmbyApi::GetAllItemsBackdrop()
+   std::vector<EmbyItemBackdropImages> EmbyApi::GetItemsWithMultipleBackdrops(std::string_view libId)
    {
-      static const ApiParams apiParams = {
-         {"Recursive", "true"},
-         {"IncludeItemTypes", "Movie,Series"},
-         {"IsMissing", "false"}
+      const ApiParams apiParams = {
+         {RECURSIVE, "true"},
+         {INCLUDE_ITEM_TYPES, "Movie,Series"},
+         {IS_MISSING, "false"},
+         {PARENT_ID, libId}
       };
       auto res = Get(BuildApiParamsPath(API_ITEMS, apiParams), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res)) return {};
@@ -445,6 +451,8 @@ namespace warp
       returnVector.reserve(response.Items.size());
       for (auto& item : response.Items)
       {
+         if (item.BackdropImageTags.size() < 2) continue;
+
          returnVector.emplace_back(EmbyItemBackdropImages{
             .name = std::move(item.Name),
             .id = std::move(item.Id),
@@ -494,7 +502,7 @@ namespace warp
    void EmbyApi::SetLibraryScan(std::string_view libraryId)
    {
       static const ApiParams apiParams = {
-         {"Recursive", "true"},
+         {RECURSIVE, "true"},
          {"ImageRefreshMode", "Default"},
          {"ReplaceAllImages", "false"},
          {"ReplaceAllMetadata", "false"}
@@ -557,10 +565,10 @@ namespace warp
       parent_.LogTrace("Rebuilding Path Map");
 
       static const ApiParams apiParams = {
-         {"Recursive", "true"},
-         {"IncludeItemTypes", "Movie,Episode"},
-         {"Fields", "Path,DateModified"},
-         {"IsMissing", "false"}
+         {RECURSIVE, "true"},
+         {INCLUDE_ITEM_TYPES, "Movie,Episode"},
+         {FIELDS, "Path,DateModified"},
+         {IS_MISSING, "false"}
       };
       const auto apiPath = parent_.BuildApiParamsPath(API_ITEMS, apiParams);
 
@@ -677,12 +685,12 @@ namespace warp
    bool EmbyApi::EmbyApiImpl::HasLibraryChanged()
    {
       static const ApiParams apiParams = {
-         {"Recursive", "true"},
-         {"IncludeItemTypes", "Movie,Episode"},
+         {RECURSIVE, "true"},
+         {INCLUDE_ITEM_TYPES, "Movie,Episode"},
          {"SortBy", "DateModified"},
          {"SortOrder", "Descending"},
          {"Limit", "1"},
-         {"Fields", "DateModified"}
+         {FIELDS, "DateModified"}
       };
       const auto apiPath = parent_.BuildApiParamsPath(API_ITEMS, apiParams);
 
