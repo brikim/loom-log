@@ -1,6 +1,6 @@
 # Version Definitions
 set(SPDLOG_VERSION  v1.17.0)
-set(GLAZE_VERSION   v7.0.1)
+set(GLAZE_VERSION   v7.0.2)
 set(HTTPLIB_VERSION v0.30.1)
 set(CRONCPP_VERSION  v2023.03.30)
 

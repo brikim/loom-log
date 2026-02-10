@@ -55,6 +55,7 @@ namespace warp
       int64_t rating_key{0};
       int64_t stopped{0};
       int32_t percent_complete{0};
+      int32_t live{0};
 
       struct glaze
       {
@@ -64,7 +65,8 @@ namespace warp
              "date", &JsonTautulliHistoryItem::date,
              "rating_key", &JsonTautulliHistoryItem::rating_key,
              "stopped", &JsonTautulliHistoryItem::stopped,
-             "percent_complete", &JsonTautulliHistoryItem::percent_complete
+             "percent_complete", &JsonTautulliHistoryItem::percent_complete,
+             "live", &JsonTautulliHistoryItem::live
          );
       };
    };

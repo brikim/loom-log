@@ -207,7 +207,8 @@ namespace warp
              .id = std::format("{}", item.rating_key),
              .watched = item.percent_complete >= watchedPercent,
              .timeWatchedEpoch = item.stopped,
-             .playbackPercentage = item.percent_complete
+             .playbackPercentage = item.percent_complete,
+             .live = item.live != 0
          });
       }
 

@@ -21,6 +21,7 @@ namespace warp
       bool watched{false};
       int64_t timeWatchedEpoch{0};
       int32_t playbackPercentage{0};
+      bool live{false};
    };
 
    // data representing an Tautulli History items
