@@ -44,6 +44,7 @@ namespace warp
          constexpr time_t readWritetimeoutSec{10};
          client_.set_read_timeout(readWritetimeoutSec);
          client_.set_write_timeout(readWritetimeoutSec);
+         client_.set_keep_alive(true);
       }
 
       Error ConvertError(httplib::Error httpError) const
