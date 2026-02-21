@@ -58,13 +58,15 @@ namespace warp
       EmbyNameToIdMap workingUsers_;
 
       using EmbyPathMap = std::unordered_map<std::filesystem::path, std::string, PathHash>;
-      bool enableExtraCache_{false};
+      bool enableCachePaths_{false};
       EmbyPathMap pathMap_;
       EmbyPathMap workingPathMap_;
 
       mutable std::shared_mutex dataLock_;
 
       EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
+
+      void EnableCachePaths();
 
       [[nodiscard]] bool GetLibraryMapEmpty() const;
       [[nodiscard]] bool GetUsersMapEmpty() const;
@@ -82,10 +84,12 @@ namespace warp
       bool HasLibraryChanged();
 
       void UpdateRequiredCache(bool forceRefresh);
-      void UpdateExtraCache(bool forceRefresh);
+      void UpdateCachePaths(bool forceRefresh);
       void RefreshCache(bool forceRefresh);
 
       std::string_view GetSearchTypeStr(EmbySearchType type);
+
+      std::string CreateUpdateJson(const std::vector<EmbyMediaUpdate>& updates);
    };
 
    EmbyApi::EmbyApiImpl::EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
@@ -99,14 +103,17 @@ namespace warp
                                      serverConfig.apiKey);
       headers_ = {
          {"X-Emby-Authorization", auth},
-         {"Accept", "application/json"},
+         {"Accept", APPLICATION_JSON},
          {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
       UpdateRequiredCache(true);
    }
 
-   EmbyApi::EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
+   EmbyApi::EmbyApi(std::string_view appName,
+                    std::string_view version,
+                    const ServerConfig& serverConfig,
+                    const ServerEmbyOptions& options)
       : ApiBase(ApiBaseData{.name = serverConfig.serverName,
             .url = serverConfig.url,
             .apiKey = serverConfig.apiKey,
@@ -115,14 +122,15 @@ namespace warp
             .prettyName = GetServerName(GetFormattedEmby(), serverConfig.serverName)})
       , pimpl_(std::make_unique<EmbyApiImpl>(*this, appName, version, serverConfig))
    {
+      if (options.enableCachePaths) pimpl_->EnableCachePaths();
    }
 
    EmbyApi::~EmbyApi() = default;
 
-   void EmbyApi::EnableExtraCaching()
+   void EmbyApi::EmbyApiImpl::EnableCachePaths()
    {
-      pimpl_->enableExtraCache_ = true;
-      pimpl_->UpdateExtraCache(true);
+      enableCachePaths_ = true;
+      UpdateCachePaths(true);
    }
 
    std::optional<std::vector<Task>> EmbyApi::GetTaskList()
@@ -513,6 +521,40 @@ namespace warp
       IsHttpSuccess(__func__, res);
    }
 
+   std::string EmbyApi::EmbyApiImpl::CreateUpdateJson(const std::vector<EmbyMediaUpdate>& updates)
+   {
+      JsonEmbyUpdate jsonUpdates;
+      for (const auto& update : updates)
+      {
+         JsonEmbyUpdateItem jsonUpdate;
+         jsonUpdate.Path = update.path.generic_string();
+         switch (update.type)
+         {
+            case EmbyUpdateType::MODIFIED:
+               jsonUpdate.UpdateType = "Modified";
+               break;
+            case EmbyUpdateType::DELETED:
+               jsonUpdate.UpdateType = "Deleted";
+               break;
+            default:
+               jsonUpdate.UpdateType = "Created";
+               break;
+         }
+         jsonUpdates.Updates.emplace_back(std::move(jsonUpdate));
+      }
+
+      return glz::write_json(jsonUpdates).value_or("{}");
+   }
+
+   void EmbyApi::SetMediaScan(const std::vector<EmbyMediaUpdate>& updates)
+   {
+      auto apiBody = pimpl_->CreateUpdateJson(updates);
+      const auto apiPath = BuildApiPath("/Library/Media/Updated");
+
+      auto res = Post(apiPath, pimpl_->headers_, apiBody, APPLICATION_JSON);
+      IsHttpSuccess(__func__, res);
+   }
+
    bool EmbyApi::EmbyApiImpl::GetPathCacheEmpty() const
    {
       std::lock_guard lock(dataLock_);
@@ -526,7 +568,7 @@ namespace warp
 
    std::optional<std::string> EmbyApi::EmbyApiImpl::GetIdFromPath(const std::filesystem::path& path)
    {
-      if (!enableExtraCache_)
+      if (!enableCachePaths_)
       {
          parent_.LogWarning("{} called but extra caching not enabled", __func__);
          return std::nullopt;
@@ -716,7 +758,7 @@ namespace warp
       if (forceRefresh || GetUsersMapEmpty()) RebuildUsersMap();
    }
 
-   void EmbyApi::EmbyApiImpl::UpdateExtraCache(bool forceRefresh)
+   void EmbyApi::EmbyApiImpl::UpdateCachePaths(bool forceRefresh)
    {
       if (forceRefresh || GetPathCacheEmpty() || HasLibraryChanged())  RebuildPathMap();
    }
@@ -724,6 +766,6 @@ namespace warp
    void EmbyApi::EmbyApiImpl::RefreshCache(bool forceRefresh)
    {
       UpdateRequiredCache(forceRefresh);
-      if (enableExtraCache_) UpdateExtraCache(forceRefresh);
+      if (enableCachePaths_) UpdateCachePaths(forceRefresh);
    }
 }

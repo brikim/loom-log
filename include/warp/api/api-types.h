@@ -25,4 +25,14 @@ namespace warp
       std::string trackerApiKey;
       std::filesystem::path mediaPath;
    };
+
+   struct ServerPlexOptions
+   {
+      bool enableCacheCollection{false};
+   };
+
+   struct ServerEmbyOptions
+   {
+      bool enableCachePaths{false};
+   };
 }

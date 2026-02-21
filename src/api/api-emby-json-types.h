@@ -99,4 +99,14 @@ namespace warp
       std::optional<int32_t> ImageIndex;
 
    };
+
+   struct JsonEmbyUpdateItem
+   {
+      std::string Path;
+      std::string UpdateType;
+   };
+   struct JsonEmbyUpdate
+   {
+      std::vector<JsonEmbyUpdateItem> Updates;
+   };
 }

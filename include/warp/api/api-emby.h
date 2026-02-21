@@ -16,10 +16,11 @@ namespace warp
    class EmbyApi : public ApiBase
    {
    public:
-      EmbyApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
+      EmbyApi(std::string_view appName,
+              std::string_view version,
+              const ServerConfig& serverConfig,
+              const ServerEmbyOptions& options);
       virtual ~EmbyApi();
-
-      void EnableExtraCaching();
 
       [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
@@ -52,6 +53,7 @@ namespace warp
 
       // Tell Emby to scan the passed in library
       void SetLibraryScan(std::string_view libraryId);
+      void SetMediaScan(const std::vector<EmbyMediaUpdate>& updates);
 
       [[nodiscard]] bool GetPathCacheEmpty() const;
       [[nodiscard]] std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);

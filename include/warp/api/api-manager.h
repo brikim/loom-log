@@ -16,17 +16,31 @@ namespace warp
 {
    struct ApiManagerImpl;
 
+   struct ApiManagerPlexConfig
+   {
+      std::vector<ServerConfig> servers;
+      ServerPlexOptions options;
+   };
+
+   struct ApiManagerEmbyConfig
+   {
+      std::vector<ServerConfig> servers;
+      ServerEmbyOptions options;
+   };
+
+   struct ApiManagerConfig
+   {
+      ApiManagerPlexConfig plexConfig;
+      ApiManagerEmbyConfig embyConfig;
+   };
+
    class ApiManager
    {
    public:
       ApiManager(std::string_view appName,
                  std::string_view version,
-                 const std::vector<ServerConfig>& plexConfigs,
-                 const std::vector<ServerConfig>& embyConfigs);
+                 const ApiManagerConfig& config);
       virtual ~ApiManager();
-
-      // Enable api caching this is needed for some functionality
-      void EnableExtraCaching();
 
       void GetTasks(std::vector<Task>& tasks);
 

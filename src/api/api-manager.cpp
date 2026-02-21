@@ -16,12 +16,11 @@ namespace warp
       std::vector<std::unique_ptr<TautulliApi>> tautulliApis_;
       std::vector<std::unique_ptr<JellystatApi>> jellystatApis_;
 
-      void SetupPlexApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& configs)
+      void SetupPlexApis(std::string_view appName, std::string_view version, const ApiManagerPlexConfig& config)
       {
-         for (const auto& server : configs)
+         for (const auto& server : config.servers)
          {
-            InitializeApi<PlexApi>(appName, version, plexApis_, server, GetFormattedPlex());
-
+            auto plexApi = InitializeApiWithOptions<PlexApi>(appName, version, plexApis_, server, config.options, GetFormattedPlex());
             if (!server.trackerUrl.empty())
             {
                InitializeApi<TautulliApi>(appName, version, tautulliApis_, server, GetFormattedTautulli());
@@ -29,12 +28,11 @@ namespace warp
          }
       }
 
-      void SetupEmbyApis(std::string_view appName, std::string_view version, const std::vector<ServerConfig>& configs)
+      void SetupEmbyApis(std::string_view appName, std::string_view version, const ApiManagerEmbyConfig& config)
       {
-         for (const auto& server : configs)
+         for (const auto& server : config.servers)
          {
-            InitializeApi<EmbyApi>(appName, version, embyApis_, server, GetFormattedEmby());
-
+            auto embyApi = InitializeApiWithOptions<EmbyApi>(appName, version, embyApis_, server, config.options, GetFormattedEmby());
             if (!server.trackerUrl.empty())
             {
                InitializeApi<JellystatApi>(appName, version, jellystatApis_, server, GetFormattedJellystat());
@@ -80,6 +78,19 @@ namespace warp
                       serverName, api->GetName(),
                       GetTag("url", api->GetUrl()),
                       GetTag("api_key", api->GetApiKey()));
+      }
+
+      template <typename ApiT, typename ContainerT, typename OptionsT>
+      ApiT* InitializeApiWithOptions(std::string_view appName,
+                                     std::string_view version,
+                                     ContainerT& container,
+                                     const ServerConfig& config,
+                                     const OptionsT& options,
+                                     std::string_view logName)
+      {
+         auto& api = container.emplace_back(std::make_unique<ApiT>(appName, version, config, options));
+         api->GetValid() ? LogServerConnectionSuccess(logName, api.get()) : LogServerConnectionError(logName, api.get());
+         return api.get();
       }
 
       template <typename ApiT, typename ContainerT>
@@ -148,28 +159,14 @@ namespace warp
 
    ApiManager::ApiManager(std::string_view appName,
                           std::string_view version,
-                          const std::vector<ServerConfig>& plexConfigs,
-                          const std::vector<ServerConfig>& embyConfigs)
+                          const ApiManagerConfig& config)
       : pimpl_(std::make_unique<ApiManagerImpl>())
    {
-      pimpl_->SetupPlexApis(appName, version, plexConfigs);
-      pimpl_->SetupEmbyApis(appName, version, embyConfigs);
+      pimpl_->SetupPlexApis(appName, version, config.plexConfig);
+      pimpl_->SetupEmbyApis(appName, version, config.embyConfig);
    }
 
    ApiManager::~ApiManager() = default;
-
-   void ApiManager::EnableExtraCaching()
-   {
-      for (auto& plexApi : pimpl_->plexApis_)
-      {
-         plexApi->EnableExtraCaching();
-      }
-
-      for (auto& embyApi : pimpl_->embyApis_)
-      {
-         embyApi->EnableExtraCaching();
-      }
-   }
 
    void ApiManager::Shutdown()
    {

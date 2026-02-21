@@ -13,6 +13,8 @@
 
 namespace warp
 {
+   const std::string APPLICATION_JSON{"application/json"};
+
    inline std::string BuildCommaSeparatedList(const std::vector<std::string>& list)
    {
       if (list.empty()) return "";

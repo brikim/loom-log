@@ -10,7 +10,7 @@ namespace warp
 {
    enum class Error
    {
-      Success = 0,
+      Success,
       Unknown,
       Connection,
       BindIPAddress,

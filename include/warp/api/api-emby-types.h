@@ -15,6 +15,13 @@ namespace warp
       path
    };
 
+   enum class EmbyUpdateType
+   {
+      CREATED,
+      MODIFIED,
+      DELETED
+   };
+
    struct EmbyItemSeries
    {
       std::string name;
@@ -73,5 +80,11 @@ namespace warp
    {
       int32_t index;
       std::filesystem::path path;
+   };
+
+   struct EmbyMediaUpdate
+   {
+      std::filesystem::path path;
+      EmbyUpdateType type;
    };
 }

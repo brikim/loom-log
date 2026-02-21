@@ -18,8 +18,6 @@ namespace warp
       const std::string API_GET_CONFIG{"/getconfig"};
       const std::string API_GET_USER_HISTORY{"/getUserHistory"};
       const std::string API_GET_LIBRARY_HISTORY{"/getLibraryHistory"};
-
-      const std::string APPLICATION_JSON{"application/json"};
    }
 
    struct JellystatApi::JellystatApiImpl

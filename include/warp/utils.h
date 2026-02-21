@@ -74,6 +74,24 @@ namespace warp
       return it != str.end();
    }
 
+   inline std::filesystem::path ReplaceMediaPath(const std::filesystem::path& fullPath,
+                                                 const std::filesystem::path& oldPath,
+                                                 const std::filesystem::path& newPath)
+   {
+      auto [oldIt, fullIt] = std::mismatch(oldPath.begin(), oldPath.end(), fullPath.begin());
+      if (oldIt == oldPath.end())
+      {
+         std::filesystem::path result = newPath;
+         for (; fullIt != fullPath.end(); ++fullIt)
+         {
+            result /= *fullIt;
+         }
+         return result;
+      }
+
+      return fullPath;
+   }
+
    inline std::filesystem::path GetDisplayFolder(const std::filesystem::path& path)
    {
       if (path.empty()) return "";

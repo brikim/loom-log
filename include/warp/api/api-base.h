@@ -14,7 +14,6 @@
 namespace warp
 {
    using ApiParams = std::vector<std::pair<std::string_view, std::string_view>>;
-   class ApiBaseImpl;
 
    class ApiBase : public Base
    {
@@ -39,13 +38,13 @@ namespace warp
       [[nodiscard]] virtual std::string_view GetApiBase() const = 0;
       [[nodiscard]] virtual std::string_view GetApiTokenName() const = 0;
 
-      std::string GetNextCronQuickTime() const;
-      std::string GetNextCronFullTime() const;
+      [[nodiscard]] std::string GetNextCronQuickTime() const;
+      [[nodiscard]] std::string GetNextCronFullTime() const;
 
-      Response Get(const std::string& path, const Headers& headers);
-      Response Post(const std::string& path, const Headers& headers);
-      Response Post(const std::string& path, const Headers& headers, const std::string& body, const std::string& contentType);
-      Response Delete(const std::string& path, const Headers& headers);
+      [[nodiscard]] Response Get(const std::string& path, const Headers& headers);
+      [[nodiscard]] Response Post(const std::string& path, const Headers& headers);
+      [[nodiscard]] Response Post(const std::string& path, const Headers& headers, const std::string& body, const std::string& contentType);
+      [[nodiscard]] Response Delete(const std::string& path, const Headers& headers);
 
       void AddApiParam(std::string& url, const ApiParams& params) const;
       [[nodiscard]] std::string BuildApiPath(std::string_view path) const;
@@ -55,6 +54,8 @@ namespace warp
       bool IsHttpSuccess(std::string_view name, const Response& response, bool log = true);
 
    private:
+      struct ApiBaseImpl;
+      friend struct ApiBaseImpl;
       std::unique_ptr<ApiBaseImpl> pimpl_;
    };
 }

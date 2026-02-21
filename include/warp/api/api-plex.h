@@ -14,10 +14,11 @@ namespace warp
    class PlexApi : public ApiBase
    {
    public:
-      PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
+      PlexApi(std::string_view appName,
+              std::string_view version,
+              const ServerConfig& serverConfig,
+              const ServerPlexOptions& options);
       virtual ~PlexApi();
-
-      void EnableExtraCaching();
 
       [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
@@ -39,6 +40,7 @@ namespace warp
 
       // Tell Plex to scan the passed in library
       void SetLibraryScan(std::string_view libraryId);
+      void SetLibraryScanPath(std::string_view libraryId, const std::filesystem::path& path);
 
       bool SetPlayed(std::string_view ratingKey, int64_t locationMs);
       bool SetWatched(std::string_view ratingKey);

@@ -1,6 +1,7 @@
 #include "warp/api/api-tautulli.h"
 
 #include "api/api-tautulli-json-types.h"
+#include "api/api-utils.h"
 #include "warp/log/log-utils.h"
 #include "warp/utils.h"
 
@@ -69,7 +70,7 @@ namespace warp
    {
       headers_ = {
          {"User-Agent", std::format("{}/{}", appName, version)},
-         {"Accept", "application/json"}
+         {"Accept", APPLICATION_JSON}
       };
 
       RefreshCache(true);

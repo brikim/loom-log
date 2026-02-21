@@ -61,7 +61,7 @@ namespace warp
          );
       };
    };
-   struct JsonPlexSearchHub
+   struct JsonPlexSearchResults
    {
       std::string type;
       std::vector<JsonPlexSearchMetadata> data;
@@ -69,14 +69,14 @@ namespace warp
       struct glaze
       {
          static constexpr auto value = glz::object(
-            "type", &JsonPlexSearchHub::type,
-            "Metadata", &JsonPlexSearchHub::data
+            "type", &JsonPlexSearchResults::type,
+            "Metadata", &JsonPlexSearchResults::data
          );
       };
    };
    struct JsonPlexSearchResult
    {
-      std::vector<JsonPlexSearchHub> hub;
+      std::vector<JsonPlexSearchResults> hub;
 
       struct glaze
       {

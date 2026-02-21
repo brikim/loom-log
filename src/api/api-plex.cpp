@@ -43,7 +43,7 @@ namespace warp
       Headers headers_;
 
       std::filesystem::path mediaPath_;
-      bool enableExtraCache_{false};
+      bool enableCacheCollections_{false};
 
       mutable std::shared_mutex dataLock_;
 
@@ -57,13 +57,13 @@ namespace warp
 
       PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
 
-      void EnableExtraCaching();
+      void EnableCacheCollections();
 
       void RebuildLibraryMap();
       void RebuildCollectionMap();
 
-      void UpdateRequiredCache(bool forceRefresh);
-      void UpdateExtraCache(bool forceRefresh);
+      void UpdateCacheRequired(bool forceRefresh);
+      void UpdateCacheCollections(bool forceRefresh);
       void RefreshCache(bool forceRefresh);
 
       std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
@@ -81,14 +81,17 @@ namespace warp
       headers_ = {
          {"X-Plex-Token", serverConfig.apiKey},
          {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
-         {"Accept", "application/json"},
+         {"Accept", APPLICATION_JSON},
          {"User-Agent", std::format("{}/{}", appName, version)}
       };
 
-      UpdateRequiredCache(true);
+      UpdateCacheRequired(true);
    }
 
-   PlexApi::PlexApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
+   PlexApi::PlexApi(std::string_view appName,
+                    std::string_view version,
+                    const ServerConfig& serverConfig,
+                    const ServerPlexOptions& options)
       : ApiBase(ApiBaseData{.name = serverConfig.serverName,
                 .url = serverConfig.url,
                 .apiKey = serverConfig.apiKey,
@@ -97,19 +100,15 @@ namespace warp
                 .prettyName = GetServerName(GetFormattedPlex(), serverConfig.serverName)})
       , pimpl_(std::make_unique<PlexApiImpl>(*this, appName, version, serverConfig))
    {
+      if (options.enableCacheCollection) pimpl_->EnableCacheCollections();
    }
 
    PlexApi::~PlexApi() = default;
 
-   void PlexApi::PlexApiImpl::EnableExtraCaching()
+   void PlexApi::PlexApiImpl::EnableCacheCollections()
    {
-      enableExtraCache_ = true;
-      UpdateExtraCache(true);
-   }
-
-   void PlexApi::EnableExtraCaching()
-   {
-      pimpl_->EnableExtraCaching();
+      enableCacheCollections_ = true;
+      UpdateCacheCollections(true);
    }
 
    std::optional<std::vector<Task>> PlexApi::GetTaskList()
@@ -333,9 +332,18 @@ namespace warp
       IsHttpSuccess(__func__, res);
    }
 
+   void PlexApi::SetLibraryScanPath(std::string_view libraryId, const std::filesystem::path& path)
+   {
+      auto apiPath = BuildApiParamsPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId), {
+         { "path", path.generic_string() }
+      });
+      auto res = Get(apiPath, pimpl_->headers_);
+      IsHttpSuccess(__func__, res);
+   }
+
    std::string PlexApi::PlexApiImpl::GetCollectionKey(std::string_view library, std::string_view collection)
    {
-      if (!enableExtraCache_)
+      if (!enableCacheCollections_)
       {
          parent_.LogWarning("{} called but extra cache not enabled", __func__);
          return {};
@@ -492,7 +500,7 @@ namespace warp
 
       workingCollections_.reserve(libraryIds.size());
 
-      bool sucessfulCollectionGet = false;
+      bool success = false;
       for (const auto& id : libraryIds)
       {
          std::string apiPath = parent_.BuildApiParamsPath(std::format("{}{}/all", API_LIBRARIES, id), {
@@ -511,7 +519,7 @@ namespace warp
          }
 
          // Received valid collections_
-         sucessfulCollectionGet = true;
+         success = true;
 
          PlexNameToIdMap nameToIdMap;
          nameToIdMap.reserve(serverResponse.response.data.size());
@@ -524,7 +532,7 @@ namespace warp
          workingCollections_.emplace(id, std::move(nameToIdMap));
       }
 
-      if (sucessfulCollectionGet)
+      if (success)
       {
          std::unique_lock lock(dataLock_);
          std::swap(workingCollections_, collections_);
@@ -536,7 +544,7 @@ namespace warp
       }
    }
 
-   void PlexApi::PlexApiImpl::UpdateRequiredCache(bool forceRefresh)
+   void PlexApi::PlexApiImpl::UpdateCacheRequired(bool forceRefresh)
    {
       bool refreshLibraries = false;
       {
@@ -546,7 +554,7 @@ namespace warp
       if (refreshLibraries) RebuildLibraryMap();
    }
 
-   void PlexApi::PlexApiImpl::UpdateExtraCache(bool forceRefresh)
+   void PlexApi::PlexApiImpl::UpdateCacheCollections(bool forceRefresh)
    {
       bool refreshCollections = false;
 
@@ -560,7 +568,7 @@ namespace warp
 
    void PlexApi::PlexApiImpl::RefreshCache(bool forceRefresh)
    {
-      UpdateRequiredCache(forceRefresh);
-      if (enableExtraCache_) UpdateExtraCache(forceRefresh);
+      UpdateCacheRequired(forceRefresh);
+      if (enableCacheCollections_) UpdateCacheCollections(forceRefresh);
    }
 }
