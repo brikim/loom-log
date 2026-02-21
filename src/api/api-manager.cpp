@@ -20,7 +20,7 @@ namespace warp
       {
          for (const auto& server : config.servers)
          {
-            auto plexApi = InitializeApiWithOptions<PlexApi>(appName, version, plexApis_, server, config.options, GetFormattedPlex());
+            InitializeApiWithOptions<PlexApi>(appName, version, plexApis_, server, config.options, GetFormattedPlex());
             if (!server.trackerUrl.empty())
             {
                InitializeApi<TautulliApi>(appName, version, tautulliApis_, server, GetFormattedTautulli());
@@ -32,7 +32,7 @@ namespace warp
       {
          for (const auto& server : config.servers)
          {
-            auto embyApi = InitializeApiWithOptions<EmbyApi>(appName, version, embyApis_, server, config.options, GetFormattedEmby());
+            InitializeApiWithOptions<EmbyApi>(appName, version, embyApis_, server, config.options, GetFormattedEmby());
             if (!server.trackerUrl.empty())
             {
                InitializeApi<JellystatApi>(appName, version, jellystatApis_, server, GetFormattedJellystat());
