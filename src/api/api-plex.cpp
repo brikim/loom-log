@@ -7,6 +7,8 @@
 #include "warp/utils.h"
 
 #include <glaze/glaze.hpp>
+#include <httplib.h>
+#include <pugixml.hpp>
 
 #include <charconv>
 #include <cmath>
@@ -19,8 +21,14 @@ namespace warp
 {
    namespace
    {
+      const std::string PLEX_RESOURCE_URL{"https://plex.tv"};
+
       constexpr std::string_view API_BASE{""};
-      constexpr std::string_view API_TOKEN_NAME("X-Plex-Token");
+      const std::string API_TOKEN_NAME{"X-Plex-Token"};
+
+      const std::string API_PLEXTV_RESOURCES{"/api/resources"};
+      const std::string API_PLEXTV_ADMIN_USER{"/api/v2/user"};
+      const std::string API_PLEXTV_SERVERS("/api/servers");
 
       constexpr std::string_view API_SERVERS{"/servers"};
       constexpr std::string_view API_LIBRARIES{"/library/sections/"};
@@ -39,10 +47,15 @@ namespace warp
 
    struct PlexApi::PlexApiImpl
    {
+      httplib::Client plexTvClient_;
+      httplib::Headers plexTvHeaders_;
+
       PlexApi& parent_;
-      Headers headers_;
+      Headers headersNoToken_;
+      Headers adminHeaders_;
 
       std::filesystem::path mediaPath_;
+      bool enableUserTokens_{false};
       bool enableCacheCollections_{false};
 
       mutable std::shared_mutex dataLock_;
@@ -51,18 +64,24 @@ namespace warp
       PlexNameToIdMap libraries_;
       PlexNameToIdMap workingLibraries_;
 
+      PlexNameToIdMap userTokens_;
+      PlexNameToIdMap workingUserTokens_;
+
       using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
       PlexIdToIdMap collections_;
       PlexIdToIdMap workingCollections_;
 
       PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
 
+      void EnableUserTokens();
       void EnableCacheCollections();
 
       void RebuildLibraryMap();
+      void RebuildUserTokenMap();
       void RebuildCollectionMap();
 
       void UpdateCacheRequired(bool forceRefresh);
+      void UpdateUserTokens(bool forceRefresh);
       void UpdateCacheCollections(bool forceRefresh);
       void RefreshCache(bool forceRefresh);
 
@@ -71,19 +90,32 @@ namespace warp
       // Returns the collection api path
       std::string GetCollectionKey(std::string_view library, std::string_view collection);
 
-      std::optional<PlexSearchResults> SearchItem(std::string_view name);
+      std::optional<PlexSearchResults> SearchItem(std::string_view userName, std::string_view itemName);
    };
 
    PlexApi::PlexApiImpl::PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-      : parent_(p)
+      : plexTvClient_(PLEX_RESOURCE_URL)
+      , parent_(p)
       , mediaPath_(serverConfig.mediaPath)
    {
-      headers_ = {
-         {"X-Plex-Token", serverConfig.apiKey},
+      auto baseHeaders = Headers{
          {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
-         {"Accept", APPLICATION_JSON},
          {"User-Agent", std::format("{}/{}", appName, version)}
       };
+
+      headersNoToken_ = baseHeaders;
+      headersNoToken_.emplace("Accept", APPLICATION_JSON);
+
+      adminHeaders_ = headersNoToken_;
+      adminHeaders_.emplace("Accept", APPLICATION_JSON);
+      adminHeaders_.emplace(API_TOKEN_NAME, parent_.GetApiKey());
+
+      // Copy the default headers into the httplib version
+      std::ranges::for_each(baseHeaders, [this](auto& header) {
+         plexTvHeaders_.emplace(header.first, header.second);
+      });
+      plexTvHeaders_.emplace(API_TOKEN_NAME, parent_.GetApiKey());
+      plexTvHeaders_.emplace("Accept", "application/xml");
 
       UpdateCacheRequired(true);
    }
@@ -100,10 +132,17 @@ namespace warp
                 .prettyName = GetServerName(GetFormattedPlex(), serverConfig.serverName)})
       , pimpl_(std::make_unique<PlexApiImpl>(*this, appName, version, serverConfig))
    {
+      if (options.enableUserTokens) pimpl_->EnableUserTokens();
       if (options.enableCacheCollection) pimpl_->EnableCacheCollections();
    }
 
    PlexApi::~PlexApi() = default;
+
+   void PlexApi::PlexApiImpl::EnableUserTokens()
+   {
+      enableUserTokens_ = true;
+      UpdateUserTokens(true);
+   }
 
    void PlexApi::PlexApiImpl::EnableCacheCollections()
    {
@@ -140,7 +179,7 @@ namespace warp
 
    bool PlexApi::GetValid()
    {
-      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers_);
+      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->adminHeaders_);
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
@@ -151,7 +190,7 @@ namespace warp
 
    std::optional<std::string> PlexApi::GetServerReportedName()
    {
-      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->headers_);
+      auto res = Get(BuildApiPath(API_SERVERS), pimpl_->adminHeaders_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexServerData> serverResponse;
@@ -184,13 +223,33 @@ namespace warp
       return pimpl_->GetLibraryId(libraryName);
    }
 
-   std::optional<PlexSearchResults> PlexApi::PlexApiImpl::SearchItem(std::string_view name)
+   std::optional<PlexSearchResults> PlexApi::PlexApiImpl::SearchItem(std::string_view userName, std::string_view itemName)
    {
+      std::string tokenToUse;
+
+      // Scope around the lock
+      {
+         std::shared_lock sharedLock(dataLock_);
+         auto iter = userTokens_.find(userName);
+         if (iter != userTokens_.end())
+            tokenToUse = iter->second;
+      }
+
+      if (tokenToUse.empty())
+      {
+         parent_.LogWarning("{} - No token found for user {}",
+                    __func__, GetTag("userName", userName));
+         return std::nullopt;
+      }
+
       const auto apiPath = parent_.BuildApiParamsPath(API_SEARCH, {
-         {"query", name}
+         {"query", itemName}
       });
 
-      auto res = parent_.Get(apiPath, headers_);
+      auto headersToUse = headersNoToken_;
+      headersToUse.emplace(API_TOKEN_NAME, tokenToUse);
+
+      auto res = parent_.Get(apiPath, headersToUse);
       if (!parent_.IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexSearchResult> serverResponse;
@@ -209,7 +268,7 @@ namespace warp
 
          auto& hubData = hub.data[0];
 
-         if (hubData.title != name) continue;
+         if (hubData.title != itemName) continue;
 
          auto& item = returnResults.items.emplace_back();
 
@@ -256,15 +315,15 @@ namespace warp
       return returnResults;
    }
 
-   std::optional<PlexSearchResults> PlexApi::GetItemInfo(std::string_view name)
+   std::optional<PlexSearchResults> PlexApi::GetItemInfo(std::string_view userName, std::string_view itemName)
    {
-      return pimpl_->SearchItem(name);
+      return pimpl_->SearchItem(userName, itemName);
    }
 
    std::optional<std::filesystem::path> PlexApi::GetItemPath(std::string_view id)
    {
       auto path = std::format("{}{}", API_LIBRARY_DATA, id);
-      auto res = Get(BuildApiPath(path), pimpl_->headers_);
+      auto res = Get(BuildApiPath(path), pimpl_->adminHeaders_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
@@ -295,7 +354,7 @@ namespace warp
       std::string apiPath{API_LIBRARY_DATA};
       apiPath += BuildCommaSeparatedList(ids);
 
-      auto res = Get(BuildApiPath(apiPath), pimpl_->headers_);
+      auto res = Get(BuildApiPath(apiPath), pimpl_->adminHeaders_);
       if (!IsHttpSuccess(__func__, res)) return {};
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
@@ -328,7 +387,7 @@ namespace warp
    void PlexApi::SetLibraryScan(std::string_view libraryId)
    {
       auto apiPath = BuildApiPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId));
-      auto res = Get(apiPath, pimpl_->headers_);
+      auto res = Get(apiPath, pimpl_->adminHeaders_);
       IsHttpSuccess(__func__, res);
    }
 
@@ -337,7 +396,7 @@ namespace warp
       auto apiPath = BuildApiParamsPath(std::format("{}{}/refresh", API_LIBRARIES, libraryId), {
          { "path", path.generic_string() }
       });
-      auto res = Get(apiPath, pimpl_->headers_);
+      auto res = Get(apiPath, pimpl_->adminHeaders_);
       IsHttpSuccess(__func__, res);
    }
 
@@ -373,7 +432,7 @@ namespace warp
       auto collectionPath = pimpl_->GetCollectionKey(library, collectionName);
       if (collectionPath.empty()) return std::nullopt;
 
-      auto res = Get(BuildApiPath(collectionPath), pimpl_->headers_);
+      auto res = Get(BuildApiPath(collectionPath), pimpl_->adminHeaders_);
       if (!IsHttpSuccess(__func__, res)) return std::nullopt;
 
       JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
@@ -408,8 +467,21 @@ namespace warp
       return collection;
    }
 
-   bool PlexApi::SetPlayed(std::string_view ratingKey, int64_t locationMs)
+   bool PlexApi::SetPlayed(std::string_view userName, std::string_view ratingKey, int64_t locationMs)
    {
+      std::string tokenToUse;
+
+      // Scope around the lock
+      {
+         std::shared_lock sharedLock(pimpl_->dataLock_);
+         auto iter = pimpl_->userTokens_.find(userName);
+         if (iter != pimpl_->userTokens_.end())
+            tokenToUse = iter->second;
+      }
+
+      if (tokenToUse.empty())
+         return false;
+
       const auto apiPath = BuildApiParamsPath("/:/progress", {
          {"identifier", "com.plexapp.plugins.library"},
          {"key", ratingKey},
@@ -417,7 +489,10 @@ namespace warp
          {"state", "stopped"} // 'stopped' commits the time to the database
       });
 
-      auto res = Get(apiPath, pimpl_->headers_);
+      auto headersToUse = pimpl_->headersNoToken_;
+      headersToUse.emplace(API_TOKEN_NAME, tokenToUse);
+
+      auto res = Get(apiPath, headersToUse);
       if (!IsHttpSuccess(__func__, res))
       {
          auto d = std::chrono::milliseconds(locationMs);
@@ -434,14 +509,30 @@ namespace warp
       return true;
    }
 
-   bool PlexApi::SetWatched(std::string_view ratingKey)
+   bool PlexApi::SetWatched(std::string_view userName, std::string_view ratingKey)
    {
+      std::string tokenToUse;
+
+      // Scope around the lock
+      {
+         std::shared_lock sharedLock(pimpl_->dataLock_);
+         auto iter = pimpl_->userTokens_.find(userName);
+         if (iter != pimpl_->userTokens_.end())
+            tokenToUse = iter->second;
+      }
+
+      if (tokenToUse.empty())
+         return false;
+
       const auto apiPath = BuildApiParamsPath("/:/scrobble", {
          {"identifier", "com.plexapp.plugins.library"},
          {"key", ratingKey}
       });
 
-      auto res = Get(apiPath, pimpl_->headers_);
+      auto headersToUse = pimpl_->headersNoToken_;
+      headersToUse.emplace(API_TOKEN_NAME, tokenToUse);
+
+      auto res = Get(apiPath, headersToUse);
       if (!IsHttpSuccess(__func__, res))
       {
          LogError("{} - Failed to mark {} as watched", __func__, GetTag("ratingKey", ratingKey));
@@ -455,7 +546,7 @@ namespace warp
    {
       parent_.LogTrace("Rebuilding Library Map");
 
-      auto res = parent_.Get(parent_.BuildApiPath(API_LIBRARIES), headers_);
+      auto res = parent_.Get(parent_.BuildApiPath(API_LIBRARIES), adminHeaders_);
       if (!parent_.IsHttpSuccess(__func__, res)) return;
 
       JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
@@ -484,6 +575,109 @@ namespace warp
       }
    }
 
+   void PlexApi::PlexApiImpl::RebuildUserTokenMap()
+   {
+      auto checkHttpSuccess = [this](const httplib::Result& res, std::string_view function) {
+         if (res.error() != httplib::Error::Success
+          || res->status >= VALID_HTTP_RESPONSE_MAX)
+         {
+            if (res->status >= VALID_HTTP_RESPONSE_MAX)
+            {
+               parent_.LogWarning("{} - HTTP Error: {} {}", function, res->status, res->reason);
+            }
+            else
+            {
+               parent_.LogWarning("{} - Connection Error: {}", function, httplib::to_string(res.error()));
+            }
+            return false;
+         }
+         return true;
+      };
+
+      auto res = plexTvClient_.Get(API_PLEXTV_RESOURCES, plexTvHeaders_);
+      if (checkHttpSuccess(res, __func__) == false) return;
+
+      pugi::xml_document doc;
+      auto result = doc.load_string(res->body.c_str());
+
+      if (!result)
+      {
+         parent_.LogWarning("{} - Could not parse {} Plex XML return", __func__, API_PLEXTV_RESOURCES);
+         return;
+      }
+
+      std::string clientId;
+      auto container = doc.child("MediaContainer");
+      for (auto device : container.children("Device"))
+      {
+         std::string currentName = device.attribute("name").value();
+         if (currentName == parent_.GetName())
+         {
+            clientId = device.attribute("clientIdentifier").value();
+            break;
+         }
+      }
+
+      // If the client id was not found return we can't continue
+      if (clientId.empty()) return;
+
+      // Now using the client id fetch the shared server to retrieve user tokens
+      auto serverRes = plexTvClient_.Get(std::format("{}/{}/shared_servers", API_PLEXTV_SERVERS, clientId), plexTvHeaders_);
+      if (checkHttpSuccess(serverRes, __func__) == false) return;
+
+      pugi::xml_document serverDoc;
+      auto serverResult = serverDoc.load_string(serverRes->body.c_str());
+      if (!serverResult)
+      {
+         parent_.LogWarning("{} - Could not parse {} Plex XML return", __func__, API_PLEXTV_SERVERS);
+         return;
+      }
+
+      auto serverContainer = serverDoc.child("MediaContainer");
+      workingUserTokens_.reserve(serverContainer.attribute("size").as_int());
+      for (auto sharedServer : serverContainer.children("SharedServer"))
+      {
+         std::string username = sharedServer.attribute("username").value();
+         std::string userToken = sharedServer.attribute("accessToken").value();
+         if (!username.empty() && !userToken.empty())
+         {
+            workingUserTokens_.emplace(std::move(username), std::move(userToken));
+         }
+      }
+
+      if (!workingUserTokens_.empty())
+      {
+         // Now fetch the admin user  to get the toke to add to the working set of tokens.
+         auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
+         if (checkHttpSuccess(adminUserRes, __func__) == false) return;
+
+         pugi::xml_document adminUserDoc;
+         auto adminUserResult = adminUserDoc.load_string(adminUserRes->body.c_str());
+         if (!adminUserResult)
+         {
+            parent_.LogWarning("{} - Could not parse {} Plex XML return", __func__, API_PLEXTV_ADMIN_USER);
+            return;
+         }
+
+         // The root node is <user>
+         auto userNode = adminUserDoc.child("user");
+
+         // Add the admin user to the working user tokens
+         std::string username = userNode.attribute("username").value();
+         std::string userToken = userNode.attribute("authToken").value();
+         workingUserTokens_.emplace(std::move(username), std::move(userToken));
+
+
+         std::unique_lock lock(dataLock_);
+         std::swap(workingUserTokens_, userTokens_);
+         workingUserTokens_.clear();
+      }
+      else
+      {
+         parent_.LogWarning("{} - Keeping stale User data due to fetch failures", __func__);
+      }
+   }
+
    void PlexApi::PlexApiImpl::RebuildCollectionMap()
    {
       parent_.LogTrace("Rebuilding Collection Map");
@@ -507,7 +701,7 @@ namespace warp
             {"type", std::format("{}", static_cast<int>(plex_search_collection))}
          });
 
-         auto res = parent_.Get(apiPath, headers_);
+         auto res = parent_.Get(apiPath, adminHeaders_);
          if (!parent_.IsHttpSuccess(__func__, res)) continue;
 
          JsonPlexResponse<JsonPlexCollectionResult> serverResponse;
@@ -547,11 +741,29 @@ namespace warp
    void PlexApi::PlexApiImpl::UpdateCacheRequired(bool forceRefresh)
    {
       bool refreshLibraries = false;
+
+      // Scope around the lock
       {
          std::unique_lock lock(dataLock_);
-         if (forceRefresh || libraries_.empty()) refreshLibraries = true;
+         refreshLibraries = forceRefresh || libraries_.empty();
       }
-      if (refreshLibraries) RebuildLibraryMap();
+
+      if (refreshLibraries)
+         RebuildLibraryMap();
+   }
+
+   void PlexApi::PlexApiImpl::UpdateUserTokens(bool forceRefresh)
+   {
+      bool refreshUserTokens = false;
+
+      // Scope around the lock
+      {
+         std::unique_lock lock(dataLock_);
+         refreshUserTokens = forceRefresh || userTokens_.empty();
+      }
+
+      if (refreshUserTokens)
+         RebuildUserTokenMap();
    }
 
    void PlexApi::PlexApiImpl::UpdateCacheCollections(bool forceRefresh)
@@ -561,14 +773,17 @@ namespace warp
       // Scope around the lock
       {
          std::unique_lock lock(dataLock_);
-         if (forceRefresh || collections_.empty()) refreshCollections = true;
+         refreshCollections = forceRefresh || collections_.empty();
       }
-      if (refreshCollections) RebuildCollectionMap();
+
+      if (refreshCollections)
+         RebuildCollectionMap();
    }
 
    void PlexApi::PlexApiImpl::RefreshCache(bool forceRefresh)
    {
       UpdateCacheRequired(forceRefresh);
+      if (enableUserTokens_) UpdateUserTokens(forceRefresh);
       if (enableCacheCollections_) UpdateCacheCollections(forceRefresh);
    }
 }

@@ -28,6 +28,7 @@ namespace warp
 
    struct ServerPlexOptions
    {
+      bool enableUserTokens{false};
       bool enableCacheCollection{false};
    };
 

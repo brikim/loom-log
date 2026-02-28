@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25...3.30)
 
-# 1. SILENCE DEPRECATION WARNINGS (Must be before project())
+# 1. SILENCE DEPRECATION WARNINGS
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
 project(warp LANGUAGES CXX)
@@ -9,7 +9,10 @@ project(warp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Align MSVC runtime (Static vs Dynamic) for all dependencies
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
@@ -25,11 +28,14 @@ FetchContent_Declare(spdlog  GIT_REPOSITORY ${SPDLOG_REPO}  GIT_TAG ${SPDLOG_VER
 FetchContent_Declare(glaze   GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
 FetchContent_Declare(httplib GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
 FetchContent_Declare(croncpp GIT_REPOSITORY ${CRONCPP_REPO} GIT_TAG ${CRONCPP_VERSION})
+FetchContent_Declare(pugixml GIT_REPOSITORY ${PUGIXML_REPO} GIT_TAG ${PUGIXML_VERSION})
 
+# Force dependencies to respect our MSVC runtime settings
 set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-FetchContent_MakeAvailable(croncpp glaze httplib spdlog)
+FetchContent_MakeAvailable(croncpp glaze httplib spdlog pugixml)
 
+# 5. SOURCE DEFINITIONS
 set(WARP_SOURCES
     include/warp/api/api-base.h
     include/warp/api/api-emby-types.h
@@ -74,11 +80,21 @@ set(WARP_SOURCES
     src/base.cpp
 )
 
-# 6. CREATE THE TARGET (Only call this ONCE)
+# 6. OPENSSL CONFIGURATION
+if(WIN32)
+    # Hint for standard Windows OpenSSL installation path if not provided
+    if(NOT OPENSSL_ROOT_DIR)
+        set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
+    endif()
+endif()
+
+find_package(OpenSSL REQUIRED)
+
+# 7. CREATE THE TARGET
 add_library(warp STATIC ${WARP_SOURCES})
 add_library(warp::warp ALIAS warp)
 
-# 7. APPLY TARGET PROPERTIES (Must be AFTER add_executable)
+# 8. APPLY TARGET PROPERTIES
 if(ipo_supported)
     set_property(TARGET warp PROPERTY 
         INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
@@ -91,7 +107,7 @@ target_compile_options(warp PRIVATE
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
-# 8. PLATFORM SPECIFIC
+# 9. PLATFORM SPECIFIC LINKING
 if(UNIX)
     target_link_options(warp PRIVATE 
         "$<$<CONFIG:Release>:-s>"
@@ -99,11 +115,11 @@ if(UNIX)
         -static-libgcc
     )
 else()
-    # Apply MSVC Link-Time Code Generation (The Windows version of LTO)
     target_link_options(warp PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 
-# 9. PRECOMPILED HEADERS
+# 10. PRECOMPILED HEADERS
+# Including heavy headers here speeds up internal warp builds
 target_precompile_headers(warp PRIVATE
     <format>
     <string>
@@ -111,15 +127,14 @@ target_precompile_headers(warp PRIVATE
     <vector>
     <memory>
     <regex>
-
-    # Third-Party
     <croncpp.h>
     <spdlog/spdlog.h>
     <glaze/glaze.hpp>
     <httplib.h>
+    <pugixml.hpp>
 )
 
-# 10. INCLUDES & LINKING
+# 11. INCLUDES & LINKING
 target_include_directories(warp 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -130,8 +145,18 @@ target_include_directories(warp
 
 target_link_libraries(warp 
     PRIVATE
+        OpenSSL::SSL 
+        OpenSSL::Crypto
         httplib::httplib
         croncpp::croncpp
         spdlog::spdlog
         glaze::glaze
+        pugixml-static
 )
+
+target_compile_definitions(warp PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+
+if(WIN32)
+    # Required for static linking of OpenSSL on MSVC to handle IO
+    target_link_libraries(warp PRIVATE OpenSSL::applink)
+endif()

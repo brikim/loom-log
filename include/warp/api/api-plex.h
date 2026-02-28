@@ -28,7 +28,7 @@ namespace warp
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
 
-      [[nodiscard]] std::optional<PlexSearchResults> GetItemInfo(std::string_view name);
+      [[nodiscard]] std::optional<PlexSearchResults> GetItemInfo(std::string_view userName, std::string_view itemName);
       [[nodiscard]] std::optional<std::filesystem::path> GetItemPath(std::string_view id);
       [[nodiscard]] std::unordered_map<std::string, std::filesystem::path> GetItemsPaths(const std::vector<std::string>& ids);
 
@@ -42,8 +42,8 @@ namespace warp
       void SetLibraryScan(std::string_view libraryId);
       void SetLibraryScanPath(std::string_view libraryId, const std::filesystem::path& path);
 
-      bool SetPlayed(std::string_view ratingKey, int64_t locationMs);
-      bool SetWatched(std::string_view ratingKey);
+      bool SetPlayed(std::string_view userName, std::string_view ratingKey, int64_t locationMs);
+      bool SetWatched(std::string_view userName, std::string_view ratingKey);
 
    protected:
       std::string_view GetApiBase() const override;
