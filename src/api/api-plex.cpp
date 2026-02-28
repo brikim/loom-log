@@ -98,6 +98,16 @@ namespace warp
       , parent_(p)
       , mediaPath_(serverConfig.mediaPath)
    {
+      // Setup the plex tv client
+      constexpr time_t timeoutSec{5};
+      plexTvClient_.set_connection_timeout(timeoutSec);
+
+      constexpr time_t readWritetimeoutSec{10};
+      plexTvClient_.set_read_timeout(readWritetimeoutSec);
+      plexTvClient_.set_write_timeout(readWritetimeoutSec);
+      plexTvClient_.set_keep_alive(true);
+
+      // Setup the headers
       auto baseHeaders = Headers{
          {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
          {"User-Agent", std::format("{}/{}", appName, version)}
@@ -117,6 +127,7 @@ namespace warp
       plexTvHeaders_.emplace(API_TOKEN_NAME, parent_.GetApiKey());
       plexTvHeaders_.emplace("Accept", "application/xml");
 
+      // Update required cache immediantly
       UpdateCacheRequired(true);
    }
 
