@@ -28,7 +28,7 @@ namespace warp
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
 
-      [[nodiscard]] std::optional<PlexSearchResults> GetItemInfo(std::string_view userName, std::string_view itemName);
+      [[nodiscard]] std::optional<PlexSearchResults> GetItemInfoByPath(std::string_view userName, const std::filesystem::path& filePath);
       [[nodiscard]] std::optional<std::filesystem::path> GetItemPath(std::string_view id);
       [[nodiscard]] std::unordered_map<std::string, std::filesystem::path> GetItemsPaths(const std::vector<std::string>& ids);
 

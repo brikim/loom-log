@@ -30,6 +30,10 @@ namespace warp
    {
       bool enableUserTokens{false};
       bool enableCacheCollection{false};
+
+      // Enable Caching of Path to rating key map. This is required to look
+      // up a rating key for a given path.
+      bool enableCachePaths{false};
    };
 
    struct ServerEmbyOptions

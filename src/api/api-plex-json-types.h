@@ -30,92 +30,39 @@ namespace warp
    };
    // } File Part Structs
 
-   // Search Result Structs
+   // Library Section Item Structs
    // {
-   struct JsonPlexSearchMetadata
+   struct JsonPlexLibrarySectionItemData
    {
-      // Basic Info
-      std::string library;
+      std::string title;
       std::string ratingKey;
-      std::string title;
-      std::optional<std::string> showTitle;
-
-      // Playback/Stats
-      uint64_t duration{0};
-      std::optional<int> viewCount;
-      std::optional<int64_t> viewOffset;
-
-      std::vector<JsonPlexMedia> media;
-
-      struct glaze
-      {
-         static constexpr auto value = glz::object(
-            "librarySectionTitle", &JsonPlexSearchMetadata::library,
-            "ratingKey", &JsonPlexSearchMetadata::ratingKey,
-            "title", &JsonPlexSearchMetadata::title,
-            "grandparentTitle", &JsonPlexSearchMetadata::showTitle,
-            "duration", &JsonPlexSearchMetadata::duration,
-            "viewCount", &JsonPlexSearchMetadata::viewCount,
-            "viewOffset", &JsonPlexSearchMetadata::viewOffset,
-            "Media", &JsonPlexSearchMetadata::media
-         );
-      };
-   };
-   struct JsonPlexSearchResults
-   {
-      std::string type;
-      std::vector<JsonPlexSearchMetadata> data;
-
-      struct glaze
-      {
-         static constexpr auto value = glz::object(
-            "type", &JsonPlexSearchResults::type,
-            "Metadata", &JsonPlexSearchResults::data
-         );
-      };
-   };
-   struct JsonPlexSearchResult
-   {
-      std::vector<JsonPlexSearchResults> hub;
-
-      struct glaze
-      {
-         static constexpr auto value = glz::object(
-            "Hub", &JsonPlexSearchResult::hub
-         );
-      };
-   };
-   // } Search Result Structs
-
-   // Collection Item Structs
-   // {
-   struct JsonPlexCollectionItemData
-   {
-      std::string title;
       std::string key;
       std::vector<JsonPlexMedia> media;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
-            "title", &JsonPlexCollectionItemData::title,
-            "key", &JsonPlexCollectionItemData::key,
-            "Media", &JsonPlexCollectionItemData::media
+            "title", &JsonPlexLibrarySectionItemData::title,
+            "ratingKey", &JsonPlexLibrarySectionItemData::ratingKey,
+            "key", &JsonPlexLibrarySectionItemData::key,
+            "Media", &JsonPlexLibrarySectionItemData::media
          );
       };
    };
-   struct JsonPlexCollectionResult
+   struct JsonPlexLibrarySectionResult
    {
-      std::vector<JsonPlexCollectionItemData> data;
+      int32_t totalSize;
+      std::vector<JsonPlexLibrarySectionItemData> data;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
-            "Metadata", &JsonPlexCollectionResult::data
+            "totalSize", &JsonPlexLibrarySectionResult::totalSize,
+            "Metadata", &JsonPlexLibrarySectionResult::data
          );
       };
    };
-   // } Collection Item Structs
+   // } Library Section Item Structs
 
    // Library Structs
    // {
@@ -123,12 +70,18 @@ namespace warp
    {
       std::string title;
       std::string id;
+      std::string type;
+      std::string agent;
+      int64_t contentChangedAt{0};
 
       struct glaze
       {
          static constexpr auto value = glz::object(
             "title", &JsonPlexLibrary::title,
-            "key", &JsonPlexLibrary::id
+            "key", &JsonPlexLibrary::id,
+            "type", &JsonPlexLibrary::type,
+            "agent", &JsonPlexLibrary::agent,
+            "contentChangedAt", &JsonPlexLibrary::contentChangedAt
          );
       };
    };
@@ -150,23 +103,35 @@ namespace warp
    struct JsonPlexMetadata
    {
       std::string ratingKey;
+      std::string title;
+      std::optional<std::string> showTitle;
+      uint64_t duration;
+      std::optional<int> viewCount;
+      std::optional<int64_t> viewOffset;
       std::vector<JsonPlexMedia> media;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
             "ratingKey", &JsonPlexMetadata::ratingKey,
+            "title", &JsonPlexMetadata::title,
+            "grandparentTitle", &JsonPlexMetadata::showTitle,
+            "duration", &JsonPlexMetadata::duration,
+            "viewCount", &JsonPlexMetadata::viewCount,
+            "viewOffset", &JsonPlexMetadata::viewOffset,
             "Media", &JsonPlexMetadata::media
          );
       };
    };
    struct JsonPlexMetadataContainer
    {
+      std::string library;
       std::vector<JsonPlexMetadata> data;
 
       struct glaze
       {
          static constexpr auto value = glz::object(
+            "librarySectionTitle", &JsonPlexMetadataContainer::library,
             "Metadata", &JsonPlexMetadataContainer::data
          );
       };
