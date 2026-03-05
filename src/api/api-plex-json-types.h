@@ -37,6 +37,7 @@ namespace warp
       std::string title;
       std::string ratingKey;
       std::string key;
+      int64_t updatedAt;
       std::vector<JsonPlexMedia> media;
 
       struct glaze
@@ -45,6 +46,7 @@ namespace warp
             "title", &JsonPlexLibrarySectionItemData::title,
             "ratingKey", &JsonPlexLibrarySectionItemData::ratingKey,
             "key", &JsonPlexLibrarySectionItemData::key,
+            "updatedAt", &JsonPlexLibrarySectionItemData::updatedAt,
             "Media", &JsonPlexLibrarySectionItemData::media
          );
       };

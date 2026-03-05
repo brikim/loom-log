@@ -15,7 +15,7 @@ namespace warp
    {
       constexpr int32_t CRON_QUICK_CHECK_SECOND_START{5};
       constexpr int32_t CRON_QUICK_CHECK_SECOND_INCREMENT{5};
-      constexpr int32_t CRON_QUICK_CHECK_MINUTES{5};
+      constexpr int32_t CRON_QUICK_CHECK_MINUTES{10};
 
       constexpr int32_t CRON_FULL_CHECK_MINUTE_START{31};
       constexpr int32_t CRON_FULL_CHECK_MINUTE_INCREMENT{2};
