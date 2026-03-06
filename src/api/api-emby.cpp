@@ -52,15 +52,11 @@ namespace warp
 
       using EmbyNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
       EmbyNameToIdMap libraries_;
-      EmbyNameToIdMap workingLibraries_;
-
       EmbyNameToIdMap users_;
-      EmbyNameToIdMap workingUsers_;
 
       using EmbyPathMap = std::unordered_map<std::filesystem::path, std::string, PathHash>;
       bool enableCachePaths_{false};
       EmbyPathMap pathMap_;
-      EmbyPathMap workingPathMap_;
 
       mutable std::shared_mutex dataLock_;
 
@@ -625,7 +621,8 @@ namespace warp
          return;
       }
 
-      workingPathMap_.reserve(response.Items.size());
+      EmbyPathMap workingPathMap;
+      workingPathMap.reserve(response.Items.size());
 
       std::string localMaxTimestamp;
       for (auto& item : response.Items)
@@ -634,7 +631,7 @@ namespace warp
          if (!item.Path.empty() && !item.Id.empty())
          {
             // Move strings to avoid allocations
-            workingPathMap_.emplace(std::move(item.Path), std::move(item.Id));
+            workingPathMap.emplace(std::move(item.Path), std::move(item.Id));
 
             // Track the newest timestamp
             if (item.DateModified > localMaxTimestamp)
@@ -644,13 +641,11 @@ namespace warp
          }
       }
 
-      if (!workingPathMap_.empty())
+      if (!workingPathMap.empty())
       {
          std::lock_guard lock(dataLock_);
-         std::swap(workingPathMap_, pathMap_);
+         pathMap_ = std::move(workingPathMap);
          lastSyncTimestamp_ = std::move(localMaxTimestamp);
-
-         workingPathMap_.clear();
       }
       else
       {
@@ -673,17 +668,17 @@ namespace warp
          return;
       }
 
-      workingLibraries_.reserve(jsonLibraries.size());
+      EmbyNameToIdMap workingLibraries;
+      workingLibraries.reserve(jsonLibraries.size());
       for (auto& library : jsonLibraries)
       {
-         workingLibraries_.emplace(std::move(library.Name), std::move(library.Id));
+         workingLibraries.emplace(std::move(library.Name), std::move(library.Id));
       }
 
-      if (!workingLibraries_.empty())
+      if (!workingLibraries.empty())
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingLibraries_, libraries_);
-         workingLibraries_.clear();
+         libraries_ = std::move(workingLibraries);
       }
       else
       {
@@ -707,16 +702,16 @@ namespace warp
          return;
       }
 
-      workingUsers_.reserve(users.size());
+      EmbyNameToIdMap workingUsers;
+      workingUsers.reserve(users.size());
       std::ranges::for_each(users, [&](auto& user) {
-         workingUsers_.emplace(std::move(user.Name), std::move(user.Id));
+         workingUsers.emplace(std::move(user.Name), std::move(user.Id));
       });
 
-      if (!workingUsers_.empty())
+      if (!workingUsers.empty())
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingUsers_, users_);
-         workingUsers_.clear();
+         users_ = std::move(workingUsers);
       }
       else
       {

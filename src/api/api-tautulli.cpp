@@ -41,7 +41,6 @@ namespace warp
 
       using NameToUserMap = std::unordered_map<std::string, TautulliUserInfo, StringHash, std::equal_to<>>;
       NameToUserMap users_;
-      NameToUserMap workingUsers_;
 
       mutable std::shared_mutex dataLock_;
 
@@ -94,7 +93,7 @@ namespace warp
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("EmbyApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.name = std::format("TautulliApi({}) - Refresh Cache Quick", GetName());
       quickCheck.cronExpression = GetNextCronQuickTime();
       quickCheck.func = [this]() {pimpl_->RefreshCache(false); };
 
@@ -274,19 +273,19 @@ namespace warp
          return;
       }
 
-      workingUsers_.reserve(serverResponse.response.data.size());
+      NameToUserMap workingUsers;
+      workingUsers.reserve(serverResponse.response.data.size());
       std::ranges::for_each(serverResponse.response.data, [&](auto& user) {
-         workingUsers_.emplace(std::move(user.username), TautulliUserInfo{
+         workingUsers.emplace(std::move(user.username), TautulliUserInfo{
             .id = user.user_id,
             .friendlyName = std::move(user.friendly_name)
          });
       });
 
-      if (!workingUsers_.empty())
+      if (!workingUsers.empty())
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingUsers_, users_);
-         workingUsers_.clear();
+         users_ = std::move(workingUsers);
       }
       else
       {

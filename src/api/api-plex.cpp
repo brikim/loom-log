@@ -67,25 +67,20 @@ namespace warp
          std::string type;
          std::string agent;
          int64_t contentChangedAt{0};
+         int64_t latestUpdateTime{0};
       };
       using PlexNameToLibraryMap = std::unordered_map<std::string, LibraryData, StringHash, std::equal_to<>>;
       PlexNameToLibraryMap libraries_;
-      PlexNameToLibraryMap workingLibraries_;
 
       using PlexNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
       PlexNameToIdMap userTokens_;
-      PlexNameToIdMap workingUserTokens_;
 
       using PlexPathToIdMap = std::unordered_map<std::filesystem::path, std::string, PathHash, std::equal_to<>>;
       PlexPathToIdMap paths_;
-      PlexPathToIdMap workingPaths_;
       std::vector<std::string> pathsSectionIds_;
-      std::vector<std::string> workingPathsSectionIds_;
-      int64_t pathsLatestTime_{0};
 
       using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
       PlexIdToIdMap collections_;
-      PlexIdToIdMap workingCollections_;
 
       PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
 
@@ -556,10 +551,11 @@ namespace warp
          return;
       }
 
-      workingLibraries_.reserve(serverResponse.response.libraries.size());
+      PlexNameToLibraryMap workingLibraries;
+      workingLibraries.reserve(serverResponse.response.libraries.size());
       for (auto& library : serverResponse.response.libraries)
       {
-         workingLibraries_.emplace(std::move(library.title), LibraryData{
+         workingLibraries.emplace(std::move(library.title), LibraryData{
             .id = std::move(library.id),
             .type = std::move(library.type),
             .agent = std::move(library.agent),
@@ -567,11 +563,10 @@ namespace warp
          });
       }
 
-      if (!workingLibraries_.empty())
+      if (!workingLibraries.empty())
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingLibraries_, libraries_);
-         workingLibraries_.clear();
+         libraries_ = std::move(workingLibraries);
       }
       else
       {
@@ -640,18 +635,19 @@ namespace warp
       }
 
       auto serverContainer = serverDoc.child("MediaContainer");
-      workingUserTokens_.reserve(serverContainer.attribute("size").as_int());
+      PlexNameToIdMap workingUserTokens;
+      workingUserTokens.reserve(serverContainer.attribute("size").as_int());
       for (auto sharedServer : serverContainer.children("SharedServer"))
       {
          std::string username = sharedServer.attribute("username").value();
          std::string userToken = sharedServer.attribute("accessToken").value();
          if (!username.empty() && !userToken.empty())
          {
-            workingUserTokens_.emplace(std::move(username), std::move(userToken));
+            workingUserTokens.emplace(std::move(username), std::move(userToken));
          }
       }
 
-      if (!workingUserTokens_.empty())
+      if (!workingUserTokens.empty())
       {
          // Now fetch the admin user  to get the toke to add to the working set of tokens.
          auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
@@ -671,12 +667,11 @@ namespace warp
          // Add the admin user to the working user tokens
          std::string username = userNode.attribute("username").value();
          std::string userToken = userNode.attribute("authToken").value();
-         workingUserTokens_.emplace(std::move(username), std::move(userToken));
+         workingUserTokens.emplace(std::move(username), std::move(userToken));
 
 
          std::unique_lock lock(dataLock_);
-         std::swap(workingUserTokens_, userTokens_);
-         workingUserTokens_.clear();
+         userTokens_ = std::move(workingUserTokens);
       }
       else
       {
@@ -698,7 +693,8 @@ namespace warp
          }
       }
 
-      workingCollections_.reserve(libraryIds.size());
+      PlexIdToIdMap workingCollections;
+      workingCollections.reserve(libraryIds.size());
 
       bool success = false;
       for (const auto& id : libraryIds)
@@ -729,14 +725,13 @@ namespace warp
             nameToIdMap.emplace(std::move(item.title), std::move(item.key));
          }
 
-         workingCollections_.emplace(id, std::move(nameToIdMap));
+         workingCollections.emplace(id, std::move(nameToIdMap));
       }
 
       if (success)
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingCollections_, collections_);
-         workingCollections_.clear();
+         collections_ = std::move(workingCollections);
       }
       else
       {
@@ -769,12 +764,26 @@ namespace warp
       constexpr auto pageSize = 250;
       auto pageSizeStr = std::to_string(pageSize);
 
-      for (auto& library : libraries_)
+      PlexNameToLibraryMap tempLibraryMap;
       {
-         auto libraryType = getLibraryType(library.second);
-         if (!libraryType) continue;
+         std::unique_lock lock(dataLock_);
+         tempLibraryMap = libraries_;
+      }
 
-         workingPathsSectionIds_.emplace_back(library.second.id);
+      std::vector<std::string> workingPathsSectionIds;
+      PlexPathToIdMap workingPaths;
+      bool allLibrariesSucceeded = true;
+      for (auto& library : tempLibraryMap)
+      {
+         if (!allLibrariesSucceeded)
+            break;
+
+         int64_t latestLibraryUpdateTime{0};
+         auto libraryType = getLibraryType(library.second);
+         if (!libraryType)
+            continue;
+
+         workingPathsSectionIds.emplace_back(library.second.id);
 
          auto libraryTypeStr = std::format("{}", static_cast<int32_t>(*libraryType));
          int32_t currentIndex = 0;
@@ -791,14 +800,19 @@ namespace warp
             currentIndex += pageSize;
 
             auto res = parent_.Get(apiPath, adminHeaders_);
-            if (!parent_.IsHttpSuccess(__func__, res)) continue;
+            if (!parent_.IsHttpSuccess(__func__, res))
+            {
+               allLibrariesSucceeded = false;
+               break;
+            }
 
             JsonPlexResponse<JsonPlexLibrarySectionResult> serverResponse;
             if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
             {
                parent_.LogWarning("{} - JSON Parse Error: {}",
                                  __func__, glz::format_error(ec, res.body));
-               continue;
+               allLibrariesSucceeded = false;
+               break;
             }
 
             if (serverResponse.response.data.empty())
@@ -809,10 +823,8 @@ namespace warp
 
             for (auto& item : serverResponse.response.data)
             {
-               if (item.updatedAt > pathsLatestTime_)
-               {
-                  pathsLatestTime_ = item.updatedAt;
-               }
+               if (item.updatedAt > latestLibraryUpdateTime)
+                  latestLibraryUpdateTime = item.updatedAt;
 
                for (auto& media : item.media)
                {
@@ -821,21 +833,30 @@ namespace warp
                      if (!part.file.empty())
                      {
                         // Can't move the rating key because it maybe needed for multiple paths
-                        workingPaths_.emplace(std::move(part.file), item.ratingKey);
+                        workingPaths.emplace(std::move(part.file), item.ratingKey);
                      }
                   }
                }
             }
          }
+
+         library.second.latestUpdateTime = latestLibraryUpdateTime;
       }
 
-      if (!workingPaths_.empty())
+      if (allLibrariesSucceeded && !workingPaths.empty())
       {
          std::unique_lock lock(dataLock_);
-         std::swap(workingPaths_, paths_);
-         std::swap(workingPathsSectionIds_, pathsSectionIds_);
-         workingPaths_.clear();
-         workingPathsSectionIds_.clear();
+         workingPathsSectionIds = std::move(workingPathsSectionIds);
+         paths_ = std::move(workingPaths);
+
+         for (const auto& [tempLibName, tempLibData] : tempLibraryMap)
+         {
+            if (auto it = libraries_.find(tempLibName);
+                it != libraries_.end())
+            {
+               it->second.latestUpdateTime = tempLibData.latestUpdateTime;
+            }
+         }
       }
       else
       {
@@ -851,67 +872,68 @@ namespace warp
       JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
       {
-         parent_.LogWarning("{} - JSON Parse Error: {}",
-                           __func__, glz::format_error(ec, res.body));
+         parent_.LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
          return;
       }
 
-      std::vector<std::string> sectionsToSearch;
-
-      // Lock as we iterate through the data and possibly update
-      std::unique_lock lock(dataLock_);
-
-      // Iterate through the libraries and see if the content changed
-      for (auto& library : serverResponse.response.libraries)
+      struct SearchTarget
       {
-         if (std::ranges::any_of(pathsSectionIds_, [&library](auto& id) { return id == library.id; }) == false)
-            continue;
+         std::string sectionId;
+         std::string title;
+         int64_t lastKnownUpdate{0};
+      };
+      std::vector<SearchTarget> targets;
 
-         auto iter = libraries_.find(library.title);
-         if (iter == libraries_.end())
-            continue;
-
-         if (iter->second.contentChangedAt != library.contentChangedAt)
+      {
+         std::unique_lock lock(dataLock_);
+         for (auto& library : serverResponse.response.libraries)
          {
-            iter->second.contentChangedAt = library.contentChangedAt;
-            sectionsToSearch.emplace_back(iter->second.id);
+            if (!std::ranges::contains(pathsSectionIds_, library.id)) continue;
+
+            if (auto it = libraries_.find(library.title);
+                it != libraries_.end() && it->second.contentChangedAt != library.contentChangedAt)
+            {
+               // Update change timestamp immediately so we don't re-trigger this target
+               it->second.contentChangedAt = library.contentChangedAt;
+               targets.emplace_back(SearchTarget{
+                  .sectionId = it->second.id,
+                  .title = library.title,
+                  .lastKnownUpdate = it->second.latestUpdateTime
+               });
+            }
          }
       }
 
-      // If any of the sections changed update any recently added items
-      for (auto sectionId : sectionsToSearch)
+      for (const auto& target : targets)
       {
-         auto apiPath = parent_.BuildApiParamsPath(std::format("{}/{}/recentlyAdded", API_LIBRARIES, sectionId), {
-            {"sort", "updatedAt:desc"},
-            {"X-Plex-Container-Start", "0"},
-            {"X-Plex-Container-Size", "50"}
+         auto apiPath = parent_.BuildApiParamsPath(std::format("{}/{}/recentlyAdded", API_LIBRARIES, target.sectionId), {
+             {"sort", "updatedAt:desc"},
+             {"X-Plex-Container-Start", "0"},
+             {"X-Plex-Container-Size", "50"}
          });
 
          auto res = parent_.Get(apiPath, adminHeaders_);
-         if (!parent_.IsHttpSuccess(__func__, res))
-            continue;
+         if (!parent_.IsHttpSuccess(__func__, res)) continue;
 
-         JsonPlexResponse<JsonPlexLibrarySectionResult> serverResponse;
-         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
+         JsonPlexResponse<JsonPlexLibrarySectionResult> sectionData;
+         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (sectionData, res.body)) continue;
+
+         if (sectionData.response.data.empty()) continue;
+
+         // Lock to protect the data updated below
+         std::unique_lock lock(dataLock_);
+
+         // Find the library again in case it changed while we were off-thread
+         auto libIter = libraries_.find(target.title);
+         if (libIter == libraries_.end()) continue;
+
+         int64_t newHighWaterMark = libIter->second.latestUpdateTime;
+
+         for (auto& item : sectionData.response.data)
          {
-            parent_.LogWarning("{} - JSON Parse Error: {}",
-                              __func__, glz::format_error(ec, res.body));
-            continue;
-         }
+            if (item.updatedAt <= target.lastKnownUpdate) continue;
 
-         if (serverResponse.response.data.empty())
-            continue;
-
-         std::optional<int64_t> newLatestTime;
-         for (auto& item : serverResponse.response.data)
-         {
-            // If this item has not been updated since the last update time continue
-            if (item.updatedAt <= pathsLatestTime_)
-               continue;
-
-            // Update the last path time
-            if (!newLatestTime || item.updatedAt > *newLatestTime)
-               newLatestTime = item.updatedAt;
+            newHighWaterMark = std::max(newHighWaterMark, item.updatedAt);
 
             for (auto& media : item.media)
             {
@@ -920,15 +942,12 @@ namespace warp
                   if (!part.file.empty())
                   {
                      paths_.insert_or_assign(part.file, item.ratingKey);
-                     parent_.LogTrace("Inserted file:{} ratingKey:{}", part.file.generic_string(), item.ratingKey);
+                     parent_.LogTrace("Incremental update: {} -> {}", part.file.string(), item.ratingKey);
                   }
                }
             }
          }
-
-         if (newLatestTime)
-            pathsLatestTime_ = *newLatestTime;
-
+         libIter->second.latestUpdateTime = newHighWaterMark;
       }
    }
 
