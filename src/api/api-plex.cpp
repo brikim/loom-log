@@ -846,7 +846,7 @@ namespace warp
       if (allLibrariesSucceeded && !workingPaths.empty())
       {
          std::unique_lock lock(dataLock_);
-         workingPathsSectionIds = std::move(workingPathsSectionIds);
+         pathsSectionIds_ = std::move(workingPathsSectionIds);
          paths_ = std::move(workingPaths);
 
          for (const auto& [tempLibName, tempLibData] : tempLibraryMap)
