@@ -927,27 +927,27 @@ namespace warp
          auto libIter = libraries_.find(target.title);
          if (libIter == libraries_.end()) continue;
 
-         int64_t newHighWaterMark = libIter->second.latestUpdateTime;
-
+         int64_t newLatestUpdateTime = libIter->second.latestUpdateTime;
          for (auto& item : sectionData.response.data)
          {
             if (item.updatedAt <= target.lastKnownUpdate) continue;
 
-            newHighWaterMark = std::max(newHighWaterMark, item.updatedAt);
+            newLatestUpdateTime = std::max(newLatestUpdateTime, item.updatedAt);
 
             for (auto& media : item.media)
             {
                for (auto& part : media.part)
                {
-                  if (!part.file.empty())
-                  {
-                     paths_.insert_or_assign(part.file, item.ratingKey);
-                     parent_.LogTrace("Incremental update: {} -> {}", part.file.string(), item.ratingKey);
-                  }
+                  if (part.file.empty())
+                     continue;
+
+                  parent_.LogTrace("Incremental update: Path:{} -> RatingKey:{}", part.file.string(), item.ratingKey);
+                  paths_.insert_or_assign(std::move(part.file), item.ratingKey);
+
                }
             }
          }
-         libIter->second.latestUpdateTime = newHighWaterMark;
+         libIter->second.latestUpdateTime = newLatestUpdateTime;
       }
    }
 

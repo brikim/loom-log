@@ -74,10 +74,10 @@ namespace warp
       std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
 
       void RebuildPathMap();
+      void CheckForPathMapUpdates();
+
       void RebuildLibraryMap();
       void RebuildUsersMap();
-
-      bool HasLibraryChanged();
 
       void UpdateRequiredCache(bool forceRefresh);
       void UpdateCachePaths(bool forceRefresh);
@@ -605,7 +605,7 @@ namespace warp
       static const ApiParams apiParams = {
          {RECURSIVE, "true"},
          {INCLUDE_ITEM_TYPES, "Movie,Episode"},
-         {FIELDS, "Path,DateModified"},
+         {FIELDS, "Path,DateCreated"},
          {IS_MISSING, "false"}
       };
       const auto apiPath = parent_.BuildApiParamsPath(API_ITEMS, apiParams);
@@ -613,7 +613,7 @@ namespace warp
       auto res = parent_.Get(apiPath, headers_);
       if (!parent_.IsHttpSuccess(__func__, res)) return;
 
-      PathRebuildItems response;
+      JsonPathRebuildItems response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          parent_.LogWarning("{} - JSON Parse Error: {}",
@@ -634,9 +634,9 @@ namespace warp
             workingPathMap.emplace(std::move(item.Path), std::move(item.Id));
 
             // Track the newest timestamp
-            if (item.DateModified > localMaxTimestamp)
+            if (item.DateCreated > localMaxTimestamp)
             {
-               localMaxTimestamp = std::move(item.DateModified);
+               localMaxTimestamp = std::move(item.DateCreated);
             }
          }
       }
@@ -719,32 +719,59 @@ namespace warp
       }
    }
 
-   bool EmbyApi::EmbyApiImpl::HasLibraryChanged()
+   void EmbyApi::EmbyApiImpl::CheckForPathMapUpdates()
    {
-      static const ApiParams apiParams = {
+      std::string timeToSearch;
+      {
+         std::unique_lock lock(dataLock_);
+         timeToSearch = lastSyncTimestamp_;
+      }
+
+      // If the time to search is not set then return
+      if (timeToSearch.empty())
+         return;
+
+      const ApiParams apiParams = {
          {RECURSIVE, "true"},
          {INCLUDE_ITEM_TYPES, "Movie,Episode"},
-         {"SortBy", "DateModified"},
-         {"SortOrder", "Descending"},
-         {"Limit", "1"},
-         {FIELDS, "DateModified"}
+         {"MinDateCreated", timeToSearch},
+         {FIELDS, "Path,DateCreated"}
       };
       const auto apiPath = parent_.BuildApiParamsPath(API_ITEMS, apiParams);
 
       auto res = parent_.Get(apiPath, headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return false;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
-      PathRebuildItems response;
+      JsonPathRebuildItems response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
       {
          parent_.LogWarning("{} - JSON Parse Error: {}",
                             __func__, glz::format_error(ec, res.body)); // Log the start of the string for context
-         return false;
+         return;
       }
 
-      return !response.Items.empty()
-         && !response.Items[0].DateModified.empty()
-         && response.Items[0].DateModified > lastSyncTimestamp_;
+      if (response.Items.empty())
+         return;
+
+      // There are items to add aquire the lock
+      std::unique_lock lock(dataLock_);
+
+      std::string latestUpdateTimestamp = lastSyncTimestamp_;
+      for (auto& item : response.Items)
+      {
+         if (item.DateCreated <= lastSyncTimestamp_)
+            continue;
+
+         if (item.DateCreated > latestUpdateTimestamp)
+            latestUpdateTimestamp = item.DateCreated;
+
+         parent_.LogTrace("Incremental update: Path:{} -> Id:{}", item.Path.string(), item.Id);
+         pathMap_.insert_or_assign(std::move(item.Path), std::move(item.Id));
+      }
+
+      if (!latestUpdateTimestamp.empty())
+         lastSyncTimestamp_ = std::move(latestUpdateTimestamp);
    }
 
    void EmbyApi::EmbyApiImpl::UpdateRequiredCache(bool forceRefresh)
@@ -755,7 +782,10 @@ namespace warp
 
    void EmbyApi::EmbyApiImpl::UpdateCachePaths(bool forceRefresh)
    {
-      if (forceRefresh || GetPathCacheEmpty() || HasLibraryChanged())  RebuildPathMap();
+      if (forceRefresh || GetPathCacheEmpty())
+         RebuildPathMap();
+      else
+         CheckForPathMapUpdates();
    }
 
    void EmbyApi::EmbyApiImpl::RefreshCache(bool forceRefresh)

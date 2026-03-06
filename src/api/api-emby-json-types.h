@@ -29,16 +29,16 @@ namespace warp
       std::vector<JsonEmbyItem> Items;
    };
 
-   struct PathRebuildItem
+   struct JsonPathRebuildItem
    {
       std::string Id;
       std::filesystem::path Path;
-      std::string DateModified;
+      std::string DateCreated;
    };
 
-   struct PathRebuildItems
+   struct JsonPathRebuildItems
    {
-      std::vector<PathRebuildItem> Items;
+      std::vector<JsonPathRebuildItem> Items;
    };
 
    struct JsonEmbyPlaylistItem
