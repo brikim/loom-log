@@ -101,7 +101,7 @@ namespace warp
       auto useSeconds = seconds;
       seconds += CRON_QUICK_CHECK_SECOND_INCREMENT;
 
-      return std::format("{} */{} * * * ?", useSeconds, CRON_QUICK_CHECK_MINUTES);
+      return std::format("{} */{} * * * *", useSeconds, CRON_QUICK_CHECK_MINUTES);
    }
 
    std::string ApiBase::GetNextCronFullTime() const
@@ -111,7 +111,7 @@ namespace warp
       auto minutesToUse = minutes;
       minutes += CRON_FULL_CHECK_MINUTE_INCREMENT;
 
-      return std::format("0 {} {} * * ?", minutesToUse, CRON_FULL_CHECK_HOUR);
+      return std::format("0 {} {} * * *", minutesToUse, CRON_FULL_CHECK_HOUR);
    }
 
    void ApiBase::AddApiParam(std::string& url, const ApiParams& params) const
