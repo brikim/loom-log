@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25...3.30)
 # 1. SILENCE DEPRECATION WARNINGS
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW)
 
-project(warp LANGUAGES CXX)
+project(warp LANGUAGES CXX C)
 
 # 2. GLOBAL SETTINGS
 set(CMAKE_CXX_STANDARD 20)
@@ -27,13 +27,13 @@ include(Dependencies.cmake)
 FetchContent_Declare(spdlog  GIT_REPOSITORY ${SPDLOG_REPO}  GIT_TAG ${SPDLOG_VERSION})
 FetchContent_Declare(glaze   GIT_REPOSITORY ${GLAZE_REPO}   GIT_TAG ${GLAZE_VERSION})
 FetchContent_Declare(httplib GIT_REPOSITORY ${HTTPLIB_REPO} GIT_TAG ${HTTPLIB_VERSION})
-FetchContent_Declare(croncpp GIT_REPOSITORY ${CRONCPP_REPO} GIT_TAG ${CRONCPP_VERSION})
+FetchContent_Declare(libcron GIT_REPOSITORY ${LIBCRON_REPO} GIT_TAG ${LIBCRON_VERSION})
 FetchContent_Declare(pugixml GIT_REPOSITORY ${PUGIXML_REPO} GIT_TAG ${PUGIXML_VERSION})
 
 # Force dependencies to respect our MSVC runtime settings
 set(SPDLOG_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
 
-FetchContent_MakeAvailable(croncpp glaze httplib spdlog pugixml)
+FetchContent_MakeAvailable(libcron glaze httplib spdlog pugixml)
 
 # 5. SOURCE DEFINITIONS
 set(WARP_SOURCES
@@ -121,17 +121,17 @@ endif()
 # 10. PRECOMPILED HEADERS
 # Including heavy headers here speeds up internal warp builds
 target_precompile_headers(warp PRIVATE
-    <format>
-    <string>
-    <string_view>
-    <vector>
-    <memory>
-    <regex>
-    <croncpp.h>
-    <spdlog/spdlog.h>
-    <glaze/glaze.hpp>
-    <httplib.h>
-    <pugixml.hpp>
+    "$<$<COMPILE_LANGUAGE:CXX>:format>"
+    "$<$<COMPILE_LANGUAGE:CXX>:string>"
+    "$<$<COMPILE_LANGUAGE:CXX>:string_view>"
+    "$<$<COMPILE_LANGUAGE:CXX>:vector>"
+    "$<$<COMPILE_LANGUAGE:CXX>:memory>"
+    "$<$<COMPILE_LANGUAGE:CXX>:regex>"
+    "$<$<COMPILE_LANGUAGE:CXX>:spdlog/spdlog.h>"
+    "$<$<COMPILE_LANGUAGE:CXX>:glaze/glaze.hpp>"
+    "$<$<COMPILE_LANGUAGE:CXX>:httplib.h>"
+    "$<$<COMPILE_LANGUAGE:CXX>:pugixml.hpp>"
+    "$<$<COMPILE_LANGUAGE:CXX>:libcron/Cron.h>"
 )
 
 # 11. INCLUDES & LINKING
@@ -148,7 +148,7 @@ target_link_libraries(warp
         OpenSSL::SSL 
         OpenSSL::Crypto
         httplib::httplib
-        croncpp::croncpp
+        libcron
         spdlog::spdlog
         glaze::glaze
         pugixml-static
