@@ -45,7 +45,13 @@ namespace warp
 
       log::Info("{}: Enabled - Schedule: {}", task.name, task.cronExpression);
 
-      bool success = cronTasks_.add_schedule(task.name, task.cronExpression, [task](auto& info) {
+      std::string expr = task.cronExpression;
+      if (expr.ends_with('*') && std::ranges::count(expr, ' ') == 5)
+      {
+         expr.back() = '?';
+      }
+
+      bool success = cronTasks_.add_schedule(task.name, expr, [task]([[maybe_unused]] auto& info) {
          try
          {
             log::Trace("Cron Scheduler: Running task {} with {}",
@@ -55,9 +61,18 @@ namespace warp
          }
          catch (const std::exception& e)
          {
-            // Log using your warp logger
+            log::Error("Cron Scheduler: {} caught {}",
+                       GetTag("task", task.name),
+                       GetTag("exception", e.what()));
          }
       });
+
+      if (!success)
+      {
+         log::Error("Cron Scheduler: Failed to schedule {} {}",
+                    GetTag("task", task.name),
+                    GetTag("cron", task.cronExpression));
+      }
    }
 
    void CronScheduler::Add(const Task& task)
