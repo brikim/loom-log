@@ -93,12 +93,12 @@ namespace warp
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("TautulliApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.name = std::format("{} - Refresh Cache Quick", GetPrettyName());
       quickCheck.cronExpression = GetNextCronQuickTime();
       quickCheck.func = [this]() {pimpl_->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("TautulliApi({}) - Settings Update", GetName());
+      fullUpdate.name = std::format("{} - Settings Update", GetPrettyName());
       fullUpdate.cronExpression = GetNextCronFullTime();
       fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
 
@@ -183,7 +183,8 @@ namespace warp
       params.insert(params.end(), extraParams.begin(), extraParams.end());
 
       auto res = parent_.Get(parent_.BuildApiParamsPath("", params), headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonTautulliResponse<JsonTautulliHistoryData> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -199,7 +200,8 @@ namespace warp
       auto watchedPercent = GetWatchedPercent();
       for (auto& item : serverResponse.response.data.data)
       {
-         if (item.date < epochHistoryTime) continue;
+         if (item.date < epochHistoryTime)
+            continue;
 
          history.items.emplace_back(TautulliHistoryItem{
              .name = std::move(item.title),
@@ -245,7 +247,8 @@ namespace warp
       });
 
       auto res = parent_.Get(apiPath, headers_);
-      if (!parent_.IsHttpSuccess(__func__, res, false)) return false;
+      if (!parent_.IsHttpSuccess(__func__, res, false))
+         return false;
 
       JsonTautulliResponse<JsonTautulliMonitorInfo> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -263,7 +266,8 @@ namespace warp
    void TautulliApi::TautulliApiImpl::RefreshUserData()
    {
       auto res = parent_.Get(parent_.BuildApiParamsPath("", {GetCmdParam(CMD_GET_USERS)}), headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       JsonTautulliResponse<std::vector<JsonUserInfo>> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -307,7 +311,9 @@ namespace warp
 
    void TautulliApi::TautulliApiImpl::RefreshCache(bool forceRefresh)
    {
-      if (forceRefresh || !GetWatchedPercentValid()) RefreshMonitoringData();
-      if (forceRefresh || GetUserMapEmpty()) RefreshUserData();
+      if (forceRefresh || !GetWatchedPercentValid())
+         RefreshMonitoringData();
+      if (forceRefresh || GetUserMapEmpty())
+         RefreshUserData();
    }
 }

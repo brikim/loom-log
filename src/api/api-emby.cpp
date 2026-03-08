@@ -134,12 +134,12 @@ namespace warp
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("EmbyApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.name = std::format("{} - Refresh Cache Quick", GetPrettyName());
       quickCheck.cronExpression = GetNextCronQuickTime();
       quickCheck.func = [this]() {pimpl_->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("EmbyApi({}) - Refresh Cache Full", GetName());
+      fullUpdate.name = std::format("{} - Refresh Cache Full", GetPrettyName());
       fullUpdate.cronExpression = GetNextCronFullTime();
       fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
 
@@ -226,7 +226,8 @@ namespace warp
       params.insert(params.end(), extraSearchArgs.begin(), extraSearchArgs.end());
 
       auto res = Get(BuildApiParamsPath(API_ITEMS, params), pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonEmbyItemsResponse response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -290,7 +291,8 @@ namespace warp
       });
 
       auto res = Get(apiPath, pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return false;
+      if (!IsHttpSuccess(__func__, res))
+         return false;
 
       JsonTotalRecordCount response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -318,7 +320,8 @@ namespace warp
       });
 
       auto res = Get(apiPath, pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonEmbyPlayStates response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -328,10 +331,12 @@ namespace warp
          return std::nullopt;
       }
 
-      if (response.Items.empty()) return std::nullopt;
+      if (response.Items.empty())
+         return std::nullopt;
 
       auto& item = response.Items[0];
-      if (item.Type != "Movie" && item.Type != "Episode") return std::nullopt;
+      if (item.Type != "Movie" && item.Type != "Episode")
+         return std::nullopt;
 
       return EmbyPlayState{.path = std::move(item.Path),
                            .percentage = item.UserData.PlayedPercentage,
@@ -362,10 +367,12 @@ namespace warp
          {INCLUDE_ITEM_TYPES, "Playlist"}
       };
       auto item = GetItem(EmbySearchType::name, name, apiParams);
-      if (!item.has_value()) return std::nullopt;
+      if (!item.has_value())
+         return std::nullopt;
 
       auto res = Get(BuildApiPath(std::format("{}/{}/Items", API_PLAYLISTS, item->id)), pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       // Parse the entire "Items" array directly into our struct
       JsonEmbyPlaylistItemsResponse response;
@@ -407,7 +414,7 @@ namespace warp
 
    bool EmbyApi::AddPlaylistItems(std::string_view playlistId, const std::vector<std::string>& addIds)
    {
-      auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_PLAYLISTS, playlistId), {
+      const auto apiPath = BuildApiParamsPath(std::format("{}/{}/Items", API_PLAYLISTS, playlistId), {
          {IDS, BuildCommaSeparatedList(addIds)}
       });
 
@@ -427,7 +434,7 @@ namespace warp
 
    bool EmbyApi::MovePlaylistItem(std::string_view playlistId, std::string_view itemId, uint32_t index)
    {
-      auto apiPath{BuildApiPath(std::format("{}/{}/Items/{}/Move/{}", API_PLAYLISTS, playlistId, itemId, index))};
+      const auto apiPath{BuildApiPath(std::format("{}/{}/Items/{}/Move/{}", API_PLAYLISTS, playlistId, itemId, index))};
 
       auto res = Post(apiPath, pimpl_->headers_);
       return IsHttpSuccess(__func__, res);
@@ -442,7 +449,8 @@ namespace warp
          {PARENT_ID, libId}
       };
       auto res = Get(BuildApiParamsPath(API_ITEMS, apiParams), pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return {};
+      if (!IsHttpSuccess(__func__, res))
+         return {};
 
       JsonEmbyItemsResponse response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -455,7 +463,8 @@ namespace warp
       returnVector.reserve(response.Items.size());
       for (auto& item : response.Items)
       {
-         if (item.BackdropImageTags.size() < 2) continue;
+         if (item.BackdropImageTags.size() < 2)
+            continue;
 
          returnVector.emplace_back(EmbyItemBackdropImages{
             .name = std::move(item.Name),
@@ -471,7 +480,8 @@ namespace warp
    {
       const auto apiPath = BuildApiPath(std::format("/Items/{}/Images", id));
       auto res = Get(apiPath, pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res)) return {};
+      if (!IsHttpSuccess(__func__, res))
+         return {};
 
       std::vector<JsonEmbyBackdrop> response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -544,7 +554,7 @@ namespace warp
 
    void EmbyApi::SetMediaScan(const std::vector<EmbyMediaUpdate>& updates)
    {
-      auto apiBody = pimpl_->CreateUpdateJson(updates);
+      const auto apiBody = pimpl_->CreateUpdateJson(updates);
       const auto apiPath = BuildApiPath("/Library/Media/Updated");
 
       auto res = Post(apiPath, pimpl_->headers_, apiBody, APPLICATION_JSON);
@@ -611,7 +621,8 @@ namespace warp
       const auto apiPath = parent_.BuildApiParamsPath(API_ITEMS, apiParams);
 
       auto res = parent_.Get(apiPath, headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       JsonPathRebuildItems response;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
@@ -658,7 +669,8 @@ namespace warp
       parent_.LogTrace("Rebuilding Library Map");
 
       auto res = parent_.Get(parent_.BuildApiPath(API_MEDIA_FOLDERS), headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       std::vector<JsonEmbyLibrary> jsonLibraries;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (jsonLibraries, res.body))
@@ -691,7 +703,8 @@ namespace warp
       parent_.LogTrace("Rebuilding User Map");
 
       auto res = parent_.Get(parent_.BuildApiPath(API_USERS), headers_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       // Parse into a vector of our minimal user structs
       std::vector<JsonEmbyUser> users;
@@ -776,8 +789,10 @@ namespace warp
 
    void EmbyApi::EmbyApiImpl::UpdateRequiredCache(bool forceRefresh)
    {
-      if (forceRefresh || GetLibraryMapEmpty()) RebuildLibraryMap();
-      if (forceRefresh || GetUsersMapEmpty()) RebuildUsersMap();
+      if (forceRefresh || GetLibraryMapEmpty())
+         RebuildLibraryMap();
+      if (forceRefresh || GetUsersMapEmpty())
+         RebuildUsersMap();
    }
 
    void EmbyApi::EmbyApiImpl::UpdateCachePaths(bool forceRefresh)
@@ -791,6 +806,7 @@ namespace warp
    void EmbyApi::EmbyApiImpl::RefreshCache(bool forceRefresh)
    {
       UpdateRequiredCache(forceRefresh);
-      if (enableCachePaths_) UpdateCachePaths(forceRefresh);
+      if (enableCachePaths_)
+         UpdateCachePaths(forceRefresh);
    }
 }

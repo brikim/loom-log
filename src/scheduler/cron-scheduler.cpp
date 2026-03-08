@@ -43,36 +43,35 @@ namespace warp
          return;
       }
 
-      log::Info("{}: Enabled - Schedule: {}", task.name, task.cronExpression);
-
       std::string expr = task.cronExpression;
       if (expr.ends_with('*') && std::ranges::count(expr, ' ') == 5)
       {
          expr.back() = '?';
       }
 
-      bool success = cronTasks_.add_schedule(task.name, expr, [task]([[maybe_unused]] auto& info) {
+      auto tagTaskName = GetTag("task", task.name);
+      auto tagCronName = GetTag("cron", task.cronExpression);
+      bool success = cronTasks_.add_schedule(task.name, expr, [task, tagTaskName, tagCronName]([[maybe_unused]] auto& info) {
          try
          {
-            log::Trace("Cron Scheduler: Running task {} with {}",
-                       GetTag("name", task.name),
-                       GetTag("cron", task.cronExpression));
+            log::Trace("Cron Scheduler: Running {} with {}", tagTaskName, tagCronName);
             task.func();
          }
          catch (const std::exception& e)
          {
             log::Error("Cron Scheduler: {} caught {}",
-                       GetTag("task", task.name),
+                       tagTaskName,
                        GetTag("exception", e.what()));
          }
       });
 
-      if (!success)
-      {
+      if (success)
+         log::Info("{}: Enabled - Schedule: {}", task.name, task.cronExpression);
+      else
          log::Error("Cron Scheduler: Failed to schedule {} {}",
-                    GetTag("task", task.name),
-                    GetTag("cron", task.cronExpression));
-      }
+                    tagTaskName,
+                    tagCronName);
+
    }
 
    void CronScheduler::Add(const Task& task)
@@ -84,6 +83,7 @@ namespace warp
    {
       while (!stopToken.stop_requested())
       {
+         // Cron tasks tick will monitor the current time and run needed tasks
          cronTasks_.tick();
 
          std::unique_lock lock(mtx_);
@@ -92,7 +92,8 @@ namespace warp
          });
 
          // If a stop is requested break out of the loop
-         if (stopToken.stop_requested()) break;
+         if (stopToken.stop_requested())
+            break;
       }
 
       log::Info("Cron Scheduler: Work thread shutting down");
@@ -100,7 +101,8 @@ namespace warp
 
    bool CronScheduler::CronSchedulerImpl::Start()
    {
-      if (cronTasks_.count() == 0) return false;
+      if (cronTasks_.count() == 0)
+         return false;
 
       // jthread starts immediately and manages its own lifetime
       runThread_ = std::make_unique<std::jthread>([this](std::stop_token st) { Work(st); });
@@ -115,12 +117,15 @@ namespace warp
 
    void CronScheduler::CronSchedulerImpl::Shutdown()
    {
-      if (!runThread_) return;
+      if (!runThread_)
+         return;
 
       runThread_->request_stop();
       cv_.notify_all();
 
-      if (runThread_->joinable()) runThread_->join();
+      if (runThread_->joinable())
+         runThread_->join();
+
       runThread_.reset();
    }
 

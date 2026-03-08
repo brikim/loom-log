@@ -158,9 +158,12 @@ namespace warp
                 .prettyName = GetServerName(GetFormattedPlex(), serverConfig.serverName)})
       , pimpl_(std::make_unique<PlexApiImpl>(*this, appName, version, serverConfig))
    {
-      if (options.enableUserTokens) pimpl_->EnableUserTokens();
-      if (options.enableCacheCollection) pimpl_->EnableCacheCollections();
-      if (options.enableCachePaths) pimpl_->EnableCachePaths();
+      if (options.enableUserTokens)
+         pimpl_->EnableUserTokens();
+      if (options.enableCacheCollection)
+         pimpl_->EnableCacheCollections();
+      if (options.enableCachePaths)
+         pimpl_->EnableCachePaths();
    }
 
    PlexApi::~PlexApi() = default;
@@ -188,12 +191,12 @@ namespace warp
       std::vector<Task> tasks;
 
       auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("PlexApi({}) - Refresh Cache Quick", GetName());
+      quickCheck.name = std::format("{} - Refresh Cache Quick", GetPrettyName());
       quickCheck.cronExpression = GetNextCronQuickTime();
       quickCheck.func = [this]() {pimpl_->RefreshCache(false); };
 
       auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("PlexApi({}) - Refresh Cache Full", GetName());
+      fullUpdate.name = std::format("{} - Refresh Cache Full", GetPrettyName());
       fullUpdate.cronExpression = GetNextCronFullTime();
       fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
 
@@ -224,7 +227,8 @@ namespace warp
    std::optional<std::string> PlexApi::GetServerReportedName()
    {
       auto res = Get(BuildApiPath(API_SERVERS), pimpl_->adminHeaders_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonPlexResponse<JsonPlexServerData> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -290,7 +294,8 @@ namespace warp
       headersToUse.emplace(API_TOKEN_NAME, tokenToUse);
 
       auto res = Get(BuildApiPath(std::format("{}/{}", API_LIBRARY_DATA, ratingKey)), headersToUse);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonPlexResponse<JsonPlexMetadataContainer> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -350,10 +355,10 @@ namespace warp
    std::optional<std::filesystem::path> PlexApi::GetItemPath(std::string_view id)
    {
       std::shared_lock sharedLock(pimpl_->dataLock_);
-      for (const auto& [path, pathId] : pimpl_->paths_)
+      if (auto iter = std::ranges::find_if(pimpl_->paths_, [id](const auto& pathPair) { return pathPair.second == id; });
+          iter != pimpl_->paths_.end())
       {
-         if (pathId == id)
-            return path;
+         return iter->first;
       }
       return std::nullopt;
    }
@@ -366,13 +371,10 @@ namespace warp
       std::shared_lock sharedLock(pimpl_->dataLock_);
       for (const auto& id : ids)
       {
-         for (const auto& [path, pathId] : pimpl_->paths_)
+         if (auto iter = std::ranges::find_if(pimpl_->paths_, [&id](const auto& pathPair) { return pathPair.second == id; });
+             iter != pimpl_->paths_.end())
          {
-            if (pathId == id)
-            {
-               results.emplace(id, path);
-               break;
-            }
+            results.emplace(id, iter->first);
          }
       }
       return results;
@@ -405,13 +407,16 @@ namespace warp
       std::shared_lock lock(dataLock_);
 
       auto libIter = libraries_.find(library);
-      if (libIter == libraries_.end()) return {};
+      if (libIter == libraries_.end())
+         return {};
 
       auto iter = collections_.find(libIter->second.id);
-      if (iter == collections_.end()) return {};
+      if (iter == collections_.end())
+         return {};
 
       auto subIter = iter->second.find(collection);
-      if (subIter == iter->second.end()) return {};
+      if (subIter == iter->second.end())
+         return {};
 
       return subIter->second;
    }
@@ -424,10 +429,12 @@ namespace warp
    std::optional<PlexCollection> PlexApi::GetCollection(std::string_view library, std::string_view collectionName)
    {
       auto collectionPath = pimpl_->GetCollectionKey(library, collectionName);
-      if (collectionPath.empty()) return std::nullopt;
+      if (collectionPath.empty())
+         return std::nullopt;
 
       auto res = Get(BuildApiPath(collectionPath), pimpl_->adminHeaders_);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonPlexResponse<JsonPlexLibrarySectionResult> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -437,14 +444,16 @@ namespace warp
          return {};
       }
 
-      if (serverResponse.response.data.size() == 0) return std::nullopt;
+      if (serverResponse.response.data.size() == 0)
+         return std::nullopt;
 
       PlexCollection collection;
       collection.name = collectionName;
 
       for (auto& data : serverResponse.response.data)
       {
-         if (data.media.size() == 0) continue;
+         if (data.media.size() == 0)
+            continue;
 
          auto& item = collection.items.emplace_back();
          item.title = data.title;
@@ -541,7 +550,8 @@ namespace warp
       parent_.LogTrace("Rebuilding Library Map");
 
       auto res = parent_.Get(parent_.BuildApiPath(API_LIBRARIES), adminHeaders_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -580,7 +590,7 @@ namespace warp
 
       auto checkHttpSuccess = [this](const httplib::Result& res, std::string_view function) {
          if (res.error() != httplib::Error::Success
-          || res->status >= VALID_HTTP_RESPONSE_MAX)
+             || res->status >= VALID_HTTP_RESPONSE_MAX)
          {
             if (res->status >= VALID_HTTP_RESPONSE_MAX)
             {
@@ -596,7 +606,8 @@ namespace warp
       };
 
       auto res = plexTvClient_.Get(API_PLEXTV_RESOURCES, plexTvHeaders_);
-      if (checkHttpSuccess(res, __func__) == false) return;
+      if (checkHttpSuccess(res, __func__) == false)
+         return;
 
       pugi::xml_document doc;
       auto result = doc.load_string(res->body.c_str());
@@ -620,11 +631,13 @@ namespace warp
       }
 
       // If the client id was not found return we can't continue
-      if (clientId.empty()) return;
+      if (clientId.empty())
+         return;
 
       // Now using the client id fetch the shared server to retrieve user tokens
       auto serverRes = plexTvClient_.Get(std::format("{}/{}/shared_servers", API_PLEXTV_SERVERS, clientId), plexTvHeaders_);
-      if (checkHttpSuccess(serverRes, __func__) == false) return;
+      if (checkHttpSuccess(serverRes, __func__) == false)
+         return;
 
       pugi::xml_document serverDoc;
       auto serverResult = serverDoc.load_string(serverRes->body.c_str());
@@ -651,7 +664,8 @@ namespace warp
       {
          // Now fetch the admin user  to get the toke to add to the working set of tokens.
          auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
-         if (checkHttpSuccess(adminUserRes, __func__) == false) return;
+         if (checkHttpSuccess(adminUserRes, __func__) == false)
+            return;
 
          pugi::xml_document adminUserDoc;
          auto adminUserResult = adminUserDoc.load_string(adminUserRes->body.c_str());
@@ -704,7 +718,8 @@ namespace warp
          });
 
          auto res = parent_.Get(apiPath, adminHeaders_);
-         if (!parent_.IsHttpSuccess(__func__, res)) continue;
+         if (!parent_.IsHttpSuccess(__func__, res))
+            continue;
 
          JsonPlexResponse<JsonPlexLibrarySectionResult> serverResponse;
          if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -867,7 +882,8 @@ namespace warp
    void PlexApi::PlexApiImpl::CheckPathMap()
    {
       auto res = parent_.Get(parent_.BuildApiPath(API_LIBRARIES), adminHeaders_);
-      if (!parent_.IsHttpSuccess(__func__, res)) return;
+      if (!parent_.IsHttpSuccess(__func__, res))
+         return;
 
       JsonPlexResponse<JsonPlexLibraryResult> serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -888,7 +904,8 @@ namespace warp
          std::unique_lock lock(dataLock_);
          for (auto& library : serverResponse.response.libraries)
          {
-            if (!std::ranges::contains(pathsSectionIds_, library.id)) continue;
+            if (!std::ranges::contains(pathsSectionIds_, library.id))
+               continue;
 
             if (auto it = libraries_.find(library.title);
                 it != libraries_.end() && it->second.contentChangedAt != library.contentChangedAt)
@@ -913,24 +930,29 @@ namespace warp
          });
 
          auto res = parent_.Get(apiPath, adminHeaders_);
-         if (!parent_.IsHttpSuccess(__func__, res)) continue;
+         if (!parent_.IsHttpSuccess(__func__, res))
+            continue;
 
          JsonPlexResponse<JsonPlexLibrarySectionResult> sectionData;
-         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (sectionData, res.body)) continue;
+         if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (sectionData, res.body))
+            continue;
 
-         if (sectionData.response.data.empty()) continue;
+         if (sectionData.response.data.empty())
+            continue;
 
          // Lock to protect the data updated below
          std::unique_lock lock(dataLock_);
 
          // Find the library again in case it changed while we were off-thread
          auto libIter = libraries_.find(target.title);
-         if (libIter == libraries_.end()) continue;
+         if (libIter == libraries_.end())
+            continue;
 
          int64_t newLatestUpdateTime = libIter->second.latestUpdateTime;
          for (auto& item : sectionData.response.data)
          {
-            if (item.updatedAt <= target.lastKnownUpdate) continue;
+            if (item.updatedAt <= target.lastKnownUpdate)
+               continue;
 
             newLatestUpdateTime = std::max(newLatestUpdateTime, item.updatedAt);
 
@@ -1012,8 +1034,11 @@ namespace warp
    void PlexApi::PlexApiImpl::RefreshCache(bool forceRefresh)
    {
       UpdateCacheRequired(forceRefresh);
-      if (enableUserTokens_) UpdateUserTokens(forceRefresh);
-      if (enableCacheCollections_) UpdateCacheCollections(forceRefresh);
-      if (enableCachePaths_) UpdateCachePaths(forceRefresh);
+      if (enableUserTokens_)
+         UpdateUserTokens(forceRefresh);
+      if (enableCacheCollections_)
+         UpdateCacheCollections(forceRefresh);
+      if (enableCachePaths_)
+         UpdateCachePaths(forceRefresh);
    }
 }

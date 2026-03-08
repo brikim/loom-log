@@ -78,7 +78,8 @@ namespace warp
    {
       auto payload = ParamsToJson({{ "userid", userId }});
       auto res = Post(BuildApiPath(API_GET_USER_HISTORY), pimpl_->headers, payload, APPLICATION_JSON);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonJellystatHistoryItems serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
@@ -107,7 +108,8 @@ namespace warp
    {
       auto payload = ParamsToJson({{ "libraryid", libraryId }});
       auto res = Post(BuildApiPath(API_GET_LIBRARY_HISTORY), pimpl_->headers, payload, APPLICATION_JSON);
-      if (!IsHttpSuccess(__func__, res)) return std::nullopt;
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
 
       JsonJellystatHistoryItems serverResponse;
       if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
