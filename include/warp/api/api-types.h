@@ -28,7 +28,6 @@ namespace warp
 
    struct ServerPlexOptions
    {
-      bool enableUserTokens{false};
       bool enableCacheCollection{false};
 
       // Enable Caching of Path to rating key map. This is required to look
