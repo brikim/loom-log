@@ -40,6 +40,9 @@ namespace warp
       // Returns the collection information for the collection in the library
       [[nodiscard]] std::optional<PlexCollection> GetCollection(std::string_view library, std::string_view collectionName);
 
+      // Returns if a user token is available for the given user name
+      [[nodiscard]] bool GetUserTokenAvailable(std::string_view userName) const;
+
       // Tell Plex to scan the passed in library
       void SetLibraryScan(std::string_view libraryId);
       void SetLibraryScanPath(std::string_view libraryId, const std::filesystem::path& path);

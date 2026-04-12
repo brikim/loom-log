@@ -486,6 +486,13 @@ namespace warp
       return collection;
    }
 
+   bool PlexApi::GetUserTokenAvailable(std::string_view userName) const
+   {
+      std::shared_lock sharedLock(pimpl_->dataLock_);
+      auto iter = pimpl_->userTokens_.find(userName);
+      return iter != pimpl_->userTokens_.end();
+   }
+
    bool PlexApi::SetPlayedByUserToken(std::string_view userToken, std::string_view ratingKey, int64_t locationMs)
    {
       if (userToken.empty())
