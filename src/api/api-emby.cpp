@@ -9,8 +9,6 @@
 #include <glaze/glaze.hpp>
 
 #include <format>
-#include <mutex>
-#include <numeric>
 #include <ranges>
 #include <shared_mutex>
 
@@ -18,14 +16,13 @@ namespace warp
 {
    namespace
    {
-      const std::string API_BASE{"/emby"};
-      const std::string API_TOKEN_NAME{"api_key"};
+      constexpr std::string_view API_BASE{"/emby"};
 
-      const std::string API_SYSTEM_INFO{"/System/Info"};
-      const std::string API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
-      const std::string API_ITEMS{"/Items"};
-      const std::string API_PLAYLISTS{"/Playlists"};
-      const std::string API_USERS{"/Users"};
+      constexpr std::string_view API_SYSTEM_INFO{"/System/Info"};
+      constexpr std::string_view API_MEDIA_FOLDERS{"/Library/SelectableMediaFolders"};
+      constexpr std::string_view API_ITEMS{"/Items"};
+      constexpr std::string_view API_PLAYLISTS{"/Playlists"};
+      constexpr std::string_view API_USERS{"/Users"};
 
       constexpr std::string_view NAME{"Name"};
       constexpr std::string_view IDS{"Ids"};
@@ -563,7 +560,7 @@ namespace warp
 
    bool EmbyApi::EmbyApiImpl::GetPathCacheEmpty() const
    {
-      std::lock_guard lock(dataLock_);
+      std::shared_lock lock(dataLock_);
       return pathMap_.empty();
    }
 
@@ -580,7 +577,7 @@ namespace warp
          return std::nullopt;
       }
 
-      std::lock_guard lock(dataLock_);
+      std::shared_lock lock(dataLock_);
 
       // Look up the item once
       if (auto it = pathMap_.find(path);
@@ -736,7 +733,7 @@ namespace warp
    {
       std::string timeToSearch;
       {
-         std::unique_lock lock(dataLock_);
+         std::shared_lock lock(dataLock_);
          timeToSearch = lastSyncTimestamp_;
       }
 

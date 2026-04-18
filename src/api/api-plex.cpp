@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <deque>
 #include <format>
 #include <mutex>
 #include <ranges>
@@ -34,15 +35,6 @@ namespace warp
       constexpr std::string_view API_SERVERS{"/servers"};
       constexpr std::string_view API_LIBRARIES{"/library/sections"};
       constexpr std::string_view API_LIBRARY_DATA{"/library/metadata"};
-
-      constexpr std::string_view ELEM_MEDIA_CONTAINER{"MediaContainer"};
-      constexpr std::string_view ELEM_MEDIA{"Media"};
-      constexpr std::string_view ELEM_VIDEO{"Video"};
-
-      constexpr std::string_view ATTR_NAME{"name"};
-      constexpr std::string_view ATTR_KEY{"key"};
-      constexpr std::string_view ATTR_TITLE{"title"};
-      constexpr std::string_view ATTR_FILE{"file"};
    }
 
    struct PlexApi::PlexApiImpl
@@ -75,8 +67,8 @@ namespace warp
       using PlexNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
       PlexNameToIdMap userTokens_;
 
-      using PlexPathToIdMap = std::unordered_map<std::filesystem::path, std::string, PathHash, std::equal_to<>>;
-      PlexPathToIdMap paths_;
+      using PlexIdToPathMap = std::unordered_map<std::string, std::filesystem::path, StringHash, std::equal_to<>>;
+      PlexIdToPathMap idToPathCache_;
       std::vector<std::string> pathsSectionIds_;
 
       using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
@@ -124,6 +116,9 @@ namespace warp
 
       // Setup the headers
       auto baseHeaders = Headers{
+         // X-Plex-Client-Identifier: A stable UUID that uniquely identifies this application
+         // to the Plex API. This must remain constant across runs so Plex recognizes warp
+         // as a trusted client. Do not change unless intentionally re-registering with Plex.
          {"X-Plex-Client-Identifier", "6e7417e2-8d76-4b1f-9c23-018274959a37"},
          {"User-Agent", std::format("{}/{}", appName, version)}
       };
@@ -208,6 +203,8 @@ namespace warp
       return API_BASE;
    }
 
+   // This returns empty string so the parent helper does not try to add the api token since this is inserted
+   // into the header and not built into the url as a query param
    std::string_view PlexApi::GetApiTokenName() const
    {
       return "";
@@ -271,16 +268,18 @@ namespace warp
       {
          std::shared_lock sharedLock(pimpl_->dataLock_);
 
-         auto iter = pimpl_->paths_.find(filePath);
-         if (iter != pimpl_->paths_.end())
-         {
-            ratingKey = iter->second;
-         }
-         else
+         auto iter = std::ranges::find_if(pimpl_->idToPathCache_, [&filePath](const auto& pair) {
+            return pair.second == filePath;
+         });
+         if (iter == pimpl_->idToPathCache_.end())
          {
             LogWarning("{} - No rating key found for path {}",
                        __func__, GetTag("path", filePath.generic_string()));
             return std::nullopt;
+         }
+         else
+         {
+            ratingKey = iter->first;
          }
       }
 
@@ -371,10 +370,10 @@ namespace warp
    std::optional<std::filesystem::path> PlexApi::GetItemPath(std::string_view id)
    {
       std::shared_lock sharedLock(pimpl_->dataLock_);
-      if (auto iter = std::ranges::find_if(pimpl_->paths_, [id](const auto& pathPair) { return pathPair.second == id; });
-          iter != pimpl_->paths_.end())
+      if (auto iter = pimpl_->idToPathCache_.find(id);
+          iter != pimpl_->idToPathCache_.end())
       {
-         return iter->first;
+         return iter->second;
       }
       return std::nullopt;
    }
@@ -387,10 +386,10 @@ namespace warp
       std::shared_lock sharedLock(pimpl_->dataLock_);
       for (const auto& id : ids)
       {
-         if (auto iter = std::ranges::find_if(pimpl_->paths_, [&id](const auto& pathPair) { return pathPair.second == id; });
-             iter != pimpl_->paths_.end())
+         if (auto iter = pimpl_->idToPathCache_.find(id);
+             iter != pimpl_->idToPathCache_.end())
          {
-            results.emplace(id, iter->first);
+            results.emplace(id, iter->second);
          }
       }
       return results;
@@ -719,13 +718,14 @@ namespace warp
 
       PlexNameToLibraryMap tempLibraryMap;
       {
-         std::unique_lock lock(dataLock_);
+         std::shared_lock lock(dataLock_);
          tempLibraryMap = libraries_;
       }
 
       std::vector<std::string> workingPathsSectionIds;
-      PlexPathToIdMap workingPaths;
+      PlexIdToPathMap workingIdToPathCache;
       bool allLibrariesSucceeded = true;
+
       for (auto& library : tempLibraryMap)
       {
          if (!allLibrariesSucceeded)
@@ -786,7 +786,7 @@ namespace warp
                      if (!part.file.empty())
                      {
                         // Can't move the rating key because it maybe needed for multiple paths
-                        workingPaths.emplace(std::move(part.file), item.ratingKey);
+                        workingIdToPathCache.emplace(item.ratingKey, std::move(part.file));
                      }
                   }
                }
@@ -796,11 +796,11 @@ namespace warp
          library.second.latestUpdateTime = latestLibraryUpdateTime;
       }
 
-      if (allLibrariesSucceeded && !workingPaths.empty())
+      if (allLibrariesSucceeded && !workingIdToPathCache.empty())
       {
          std::unique_lock lock(dataLock_);
          pathsSectionIds_ = std::move(workingPathsSectionIds);
-         paths_ = std::move(workingPaths);
+         idToPathCache_ = std::move(workingIdToPathCache);
 
          for (const auto& [tempLibName, tempLibData] : tempLibraryMap)
          {
@@ -840,7 +840,10 @@ namespace warp
 
       auto res = plexTvClient_.Get(API_PLEXTV_RESOURCES, plexTvHeaders_);
       if (checkHttpSuccess(res, __func__) == false)
+      {
+         parent_.LogWarning("{} - Failed to fetch plex tv resources. Keeping stale data.", __func__);
          return;
+      }
 
       pugi::xml_document doc;
       auto result = doc.load_string(res->body.c_str());
@@ -865,12 +868,18 @@ namespace warp
 
       // If the client id was not found return we can't continue
       if (clientId.empty())
+      {
+         parent_.LogWarning("{} - Failed to fetch client id from plex tv resources. Keeping stale data.", __func__);
          return;
+      }
 
       // Now using the client id fetch the shared server to retrieve user tokens
       auto serverRes = plexTvClient_.Get(std::format("{}/{}/shared_servers", API_PLEXTV_SERVERS, clientId), plexTvHeaders_);
       if (checkHttpSuccess(serverRes, __func__) == false)
+      {
+         parent_.LogWarning("{} - Failed to fetch shared servers from plex tv resources. Keeping stale data.", __func__);
          return;
+      }
 
       pugi::xml_document serverDoc;
       auto serverResult = serverDoc.load_string(serverRes->body.c_str());
@@ -893,37 +902,44 @@ namespace warp
          }
       }
 
-      if (!workingUserTokens.empty())
-      {
-         // Now fetch the admin user  to get the toke to add to the working set of tokens.
-         auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
-         if (checkHttpSuccess(adminUserRes, __func__) == false)
-            return;
-
-         pugi::xml_document adminUserDoc;
-         auto adminUserResult = adminUserDoc.load_string(adminUserRes->body.c_str());
-         if (!adminUserResult)
-         {
-            parent_.LogWarning("{} - Could not parse {} Plex XML return", __func__, API_PLEXTV_ADMIN_USER);
-            return;
-         }
-
-         // The root node is <user>
-         auto userNode = adminUserDoc.child("user");
-
-         // Add the admin user to the working user tokens
-         std::string username = userNode.attribute("username").value();
-         std::string userToken = userNode.attribute("authToken").value();
-         workingUserTokens.emplace(std::move(username), std::move(userToken));
-
-
-         std::unique_lock lock(dataLock_);
-         userTokens_ = std::move(workingUserTokens);
-      }
-      else
+      if (workingUserTokens.empty())
       {
          parent_.LogWarning("{} - Keeping stale User data due to fetch failures", __func__);
+         return;
       }
+
+      // Now fetch the admin user to get the token to add to the working set of tokens.
+      auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
+      if (checkHttpSuccess(adminUserRes, __func__) == false)
+      {
+         parent_.LogWarning("{} - Admin token fetch failed, keeping stale User data", __func__);
+         return;
+      }
+
+      pugi::xml_document adminUserDoc;
+      auto adminUserResult = adminUserDoc.load_string(adminUserRes->body.c_str());
+      if (!adminUserResult)
+      {
+         parent_.LogWarning("{} - Could not parse {} Plex XML return", __func__, API_PLEXTV_ADMIN_USER);
+         return;
+      }
+
+      // The root node is <user>
+      auto userNode = adminUserDoc.child("user");
+
+      // Add the admin user to the working user tokens
+      std::string username = userNode.attribute("username").value();
+      std::string userToken = userNode.attribute("authToken").value();
+      if (username.empty() || userToken.empty())
+      {
+         parent_.LogWarning("{} - Failed to retrieve admin user name or token", __func__, API_PLEXTV_ADMIN_USER);
+         return;
+      }
+
+      workingUserTokens.emplace(std::move(username), std::move(userToken));
+
+      std::unique_lock lock(dataLock_);
+      userTokens_ = std::move(workingUserTokens);
    }
 
    void PlexApi::PlexApiImpl::CheckPathMap()
@@ -1011,7 +1027,7 @@ namespace warp
                      continue;
 
                   parent_.LogTrace("Incremental update: Path:{} -> RatingKey:{}", part.file.string(), item.ratingKey);
-                  paths_.insert_or_assign(std::move(part.file), item.ratingKey);
+                  idToPathCache_.insert_or_assign(item.ratingKey, std::move(part.file));
 
                }
             }
@@ -1026,8 +1042,8 @@ namespace warp
 
       // Scope around the lock
       {
-         std::unique_lock lock(dataLock_);
-         refreshLibraries = forceRefresh || collections_.empty();
+         std::shared_lock lock(dataLock_);
+         refreshLibraries = forceRefresh || libraries_.empty();
       }
 
       if (refreshLibraries)
@@ -1040,7 +1056,7 @@ namespace warp
 
       // Scope around the lock
       {
-         std::unique_lock lock(dataLock_);
+         std::shared_lock lock(dataLock_);
          refreshCollections = forceRefresh || collections_.empty();
       }
 
@@ -1054,8 +1070,8 @@ namespace warp
 
       // Scope around the lock
       {
-         std::unique_lock lock(dataLock_);
-         fullRefreshRequired = forceRefresh || paths_.empty();
+         std::shared_lock lock(dataLock_);
+         fullRefreshRequired = forceRefresh || idToPathCache_.empty();
       }
 
       if (fullRefreshRequired)
@@ -1070,7 +1086,7 @@ namespace warp
 
       // Scope around the lock
       {
-         std::unique_lock lock(dataLock_);
+         std::shared_lock lock(dataLock_);
          refreshUserTokens = forceRefresh || userTokens_.empty();
       }
 

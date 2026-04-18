@@ -30,7 +30,7 @@ namespace warp
 
          auto message = StripAnsiiCharacters(fmt::to_string(formatted));
 
-         size_t pos = 0;
+         size_t pos = 0u;
          while ((pos = message.find('"', pos)) != std::string::npos)
          {
             message.replace(pos, 1, "\\\"");
@@ -40,7 +40,7 @@ namespace warp
          httplib::Params params{
             {"title", title_},
             {"message", message},
-            {"priority", std::to_string(priority_)}
+            {"priority", std::format("{}", priority_)}
          };
          auto res = client_.Post("/message", headers_, params);
       }

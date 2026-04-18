@@ -6,6 +6,7 @@
 #include <libcron/Cron.h>
 
 #include <algorithm>
+#include <atomic>
 #include <ranges>
 
 namespace warp
@@ -16,6 +17,7 @@ namespace warp
       libcron::Cron<libcron::LocalClock, libcron::Locker> cronTasks_;
       std::mutex mtx_;
       std::condition_variable_any cv_;
+      std::atomic_bool started_{false};
       std::unique_ptr<std::jthread> runThread_;
 
       void Add(const Task& task);
@@ -37,7 +39,7 @@ namespace warp
 
    void CronScheduler::CronSchedulerImpl::Add(const Task& task)
    {
-      if (runThread_)
+      if (started_)
       {
          log::Error("Cron Scheduler: Attempted to add task {} after start", task.name);
          return;
@@ -81,6 +83,9 @@ namespace warp
 
    void CronScheduler::CronSchedulerImpl::Work(std::stop_token stopToken)
    {
+      // Set the scheduler to started
+      started_ = true;
+
       while (!stopToken.stop_requested())
       {
          // Cron tasks tick will monitor the current time and run needed tasks
@@ -90,10 +95,6 @@ namespace warp
          cv_.wait_for(lock, stopToken, std::chrono::milliseconds(1000), [&] {
             return stopToken.stop_requested();
          });
-
-         // If a stop is requested break out of the loop
-         if (stopToken.stop_requested())
-            break;
       }
 
       log::Info("Cron Scheduler: Work thread shutting down");

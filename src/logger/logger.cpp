@@ -37,24 +37,26 @@ namespace warp
 
    struct Logger::Impl
    {
-      std::shared_ptr<spdlog::logger> logger;
+      std::shared_ptr<spdlog::logger> logger_;
    };
 
    Logger::Logger()
       : pimpl_(std::make_unique<Impl>())
    {
-      // 8192 is the queue size (must be power of 2), 1 is the number of worker threads
-      spdlog::init_thread_pool(128, 1);
+      // Applications are not expected to burst more than 1024 messages at a time.
+      constexpr size_t QUEUE_SIZE{1024u};
+      constexpr size_t THREAD_COUNT{1u};
+      spdlog::init_thread_pool(QUEUE_SIZE, THREAD_COUNT);
 
       std::vector<spdlog::sink_ptr> sinks;
       auto& consoleSink{sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>())};
       consoleSink->set_formatter(std::make_unique<AnsiiFormatter>());
 
-      pimpl_->logger = std::make_shared<spdlog::async_logger>("warp-logger",
-                                                              sinks.begin(),
-                                                              sinks.end(),
-                                                              spdlog::thread_pool(),
-                                                              spdlog::async_overflow_policy::block);
+      pimpl_->logger_ = std::make_shared<spdlog::async_logger>("warp-logger",
+                                                               sinks.begin(),
+                                                               sinks.end(),
+                                                               spdlog::thread_pool(),
+                                                               spdlog::async_overflow_policy::block);
 
       bool traceEnabled = false;
 #if defined(_DEBUG) || !defined(NDEBUG)
@@ -65,12 +67,12 @@ namespace warp
 #endif
       if (traceEnabled)
       {
-         pimpl_->logger->set_level(spdlog::level::trace);
-         pimpl_->logger->flush_on(spdlog::level::trace);
+         pimpl_->logger_->set_level(spdlog::level::trace);
+         pimpl_->logger_->flush_on(spdlog::level::trace);
       }
       else
       {
-         pimpl_->logger->flush_on(spdlog::level::info);
+         pimpl_->logger_->flush_on(spdlog::level::info);
       }
    }
 
@@ -78,18 +80,30 @@ namespace warp
 
    void Logger::InitFileLogging(const std::filesystem::path& path, std::string_view filename)
    {
-      std::filesystem::path p(path);
-      p /= filename;
+      auto p = path / filename;
 
       std::error_code ec;
       std::filesystem::create_directories(p.parent_path(), ec);
 
+      if (ec)
+      {
+         pimpl_->logger_->warn("Failed to create log directory {}: {}", p.parent_path().string(), ec.message());
+         return;
+      }
+
       constexpr size_t max_size{1048576 * 5};
       constexpr size_t max_files{5};
-      auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(p.string(), max_size, max_files);
-      fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
 
-      pimpl_->logger->sinks().push_back(fileSink);
+      try
+      {
+         auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(p.string(), max_size, max_files);
+         fileSink->set_formatter(std::make_unique<AnsiiRemoveFormatter>());
+         pimpl_->logger_->sinks().push_back(fileSink);
+      }
+      catch (const std::exception& e)
+      {
+         pimpl_->logger_->warn("Failed to initialize file logging {}: {}", p.string(), e.what());
+      }
    }
 
    void Logger::InitApprise(const AppriseLoggingConfig& config)
@@ -102,7 +116,7 @@ namespace warp
       // Clean pattern for mobile/email notifications (No colors)
       app_sink->set_pattern("[%l] %v");
 
-      pimpl_->logger->sinks().push_back(app_sink);
+      pimpl_->logger_->sinks().push_back(app_sink);
    }
 
    void Logger::InitGotify(const GotifyLoggingConfig& config)
@@ -115,17 +129,17 @@ namespace warp
       // Clean pattern for mobile/email notifications (No colors)
       app_sink->set_pattern("[%l] %v");
 
-      pimpl_->logger->sinks().push_back(app_sink);
+      pimpl_->logger_->sinks().push_back(app_sink);
    }
 
    void Logger::LogInternal(LogType level, std::string_view msg)
    {
-      pimpl_->logger->log(ToSpdLogLevel(level), msg);
+      pimpl_->logger_->log(ToSpdLogLevel(level), msg);
    }
 
    bool Logger::ShouldLog(LogType level)
    {
-      return pimpl_->logger->should_log(ToSpdLogLevel(level));
+      return pimpl_->logger_->should_log(ToSpdLogLevel(level));
 
    }
 }

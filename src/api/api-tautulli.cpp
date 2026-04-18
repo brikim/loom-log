@@ -8,8 +8,6 @@
 #include <glaze/glaze.hpp>
 
 #include <format>
-#include <mutex>
-#include <ranges>
 #include <shared_mutex>
 
 namespace warp
@@ -52,7 +50,7 @@ namespace warp
                                                                         int64_t epochHistoryTime,
                                                                         const ApiParams& extraParams);
 
-      int32_t GetWatchedPercent();
+      int32_t GetWatchedPercent() const;
 
       std::optional<TautulliUserInfo> GetUserInfo(std::string_view name);
 
@@ -162,7 +160,7 @@ namespace warp
       return pimpl_->GetUserInfo(name);
    }
 
-   int32_t TautulliApi::TautulliApiImpl::GetWatchedPercent()
+   int32_t TautulliApi::TautulliApiImpl::GetWatchedPercent() const
    {
       constexpr int32_t defaultWatchedPercent = 85;
 
@@ -214,7 +212,7 @@ namespace warp
          });
       }
 
-      return history.items.size() > 0 ? std::make_optional(history) : std::nullopt;
+      return history.items.empty() ? std::nullopt : std::make_optional(history);
    }
 
    std::optional<TautulliHistoryItems> TautulliApi::GetWatchHistoryForUser(std::string_view user,
