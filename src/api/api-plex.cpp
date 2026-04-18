@@ -69,6 +69,10 @@ namespace warp
 
       using PlexIdToPathMap = std::unordered_map<std::string, std::filesystem::path, StringHash, std::equal_to<>>;
       PlexIdToPathMap idToPathCache_;
+
+      using PlexPathToIdMap = std::unordered_map<std::filesystem::path, std::string, PathHash, std::equal_to<>>;
+      PlexPathToIdMap pathToIdCache_;
+
       std::vector<std::string> pathsSectionIds_;
 
       using PlexIdToIdMap = std::unordered_map<std::string, PlexNameToIdMap, StringHash, std::equal_to<>>;
@@ -268,10 +272,8 @@ namespace warp
       {
          std::shared_lock sharedLock(pimpl_->dataLock_);
 
-         auto iter = std::ranges::find_if(pimpl_->idToPathCache_, [&filePath](const auto& pair) {
-            return pair.second == filePath;
-         });
-         if (iter == pimpl_->idToPathCache_.end())
+         if (auto iter = pimpl_->pathToIdCache_.find(filePath);
+             iter == pimpl_->pathToIdCache_.end())
          {
             LogWarning("{} - No rating key found for path {}",
                        __func__, GetTag("path", filePath.generic_string()));
@@ -279,7 +281,7 @@ namespace warp
          }
          else
          {
-            ratingKey = iter->first;
+            ratingKey = iter->second;
          }
       }
 
@@ -724,6 +726,7 @@ namespace warp
 
       std::vector<std::string> workingPathsSectionIds;
       PlexIdToPathMap workingIdToPathCache;
+      PlexPathToIdMap workingPathToIdCache;
       bool allLibrariesSucceeded = true;
 
       for (auto& library : tempLibraryMap)
@@ -786,7 +789,8 @@ namespace warp
                      if (!part.file.empty())
                      {
                         // Can't move the rating key because it maybe needed for multiple paths
-                        workingIdToPathCache.emplace(item.ratingKey, std::move(part.file));
+                        workingIdToPathCache.emplace(item.ratingKey, part.file);
+                        workingPathToIdCache.emplace(part.file, item.ratingKey);
                      }
                   }
                }
@@ -801,6 +805,7 @@ namespace warp
          std::unique_lock lock(dataLock_);
          pathsSectionIds_ = std::move(workingPathsSectionIds);
          idToPathCache_ = std::move(workingIdToPathCache);
+         pathToIdCache_ = std::move(workingPathToIdCache);
 
          for (const auto& [tempLibName, tempLibData] : tempLibraryMap)
          {
@@ -1027,7 +1032,8 @@ namespace warp
                      continue;
 
                   parent_.LogTrace("Incremental update: Path:{} -> RatingKey:{}", part.file.string(), item.ratingKey);
-                  idToPathCache_.insert_or_assign(item.ratingKey, std::move(part.file));
+                  idToPathCache_.insert_or_assign(item.ratingKey, part.file);
+                  pathToIdCache_.insert_or_assign(part.file, item.ratingKey);
 
                }
             }
@@ -1071,7 +1077,7 @@ namespace warp
       // Scope around the lock
       {
          std::shared_lock lock(dataLock_);
-         fullRefreshRequired = forceRefresh || idToPathCache_.empty();
+         fullRefreshRequired = forceRefresh || idToPathCache_.empty() || pathToIdCache_.empty();
       }
 
       if (fullRefreshRequired)
