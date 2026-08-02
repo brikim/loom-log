@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace warp
 {
@@ -26,12 +27,19 @@ namespace warp
       std::filesystem::path mediaPath;
    };
 
+   struct TracearrServerData
+   {
+      std::string tracearrServerName;
+      std::string serverName;
+   };
+
    struct TracearrConfig
    {
       bool enabled{false};
       std::string serverName;
       std::string url;
       std::string apiKey;
+      std::vector<TracearrServerData> servers;
    };
 
    struct ServerPlexOptions
