@@ -5,6 +5,7 @@
 #include "warp/api/api-jellystat.h"
 #include "warp/api/api-plex.h"
 #include "warp/api/api-tautulli.h"
+#include "warp/api/api-tracearr.h"
 #include "warp/api/api-types.h"
 #include "warp/types.h"
 
@@ -32,6 +33,7 @@ namespace warp
    {
       ApiManagerPlexConfig plexConfig;
       ApiManagerEmbyConfig embyConfig;
+      TracearrConfig tracearrConfig;
    };
 
    class ApiManager
@@ -51,6 +53,7 @@ namespace warp
       [[nodiscard]] EmbyApi* GetEmbyApi(std::string_view name) const;
       [[nodiscard]] TautulliApi* GetTautulliApi(std::string_view name) const;
       [[nodiscard]] JellystatApi* GetJellystatApi(std::string_view name) const;
+      [[nodiscard]] TracearrApi* GetTracearrApi() const;
       [[nodiscard]] ApiBase* GetApi(ApiType type, std::string_view name) const;
 
    private:

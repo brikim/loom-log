@@ -13,7 +13,8 @@ namespace warp
       PLEX,
       EMBY,
       TAUTULLI,
-      JELLYSTAT
+      JELLYSTAT,
+      TRACEARR
    };
 
    struct Task

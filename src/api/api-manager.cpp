@@ -15,6 +15,7 @@ namespace warp
       std::vector<std::unique_ptr<EmbyApi>> embyApis_;
       std::vector<std::unique_ptr<TautulliApi>> tautulliApis_;
       std::vector<std::unique_ptr<JellystatApi>> jellystatApis_;
+      std::unique_ptr<TracearrApi> tracearrApi_;
 
       void SetupPlexApis(std::string_view appName, std::string_view version, const ApiManagerPlexConfig& config)
       {
@@ -40,12 +41,22 @@ namespace warp
          }
       }
 
+      void SetupTracearrApi(std::string_view appName, std::string_view version, const TracearrConfig& config)
+      {
+         if (config.enabled)
+         {
+            tracearrApi_ = std::make_unique<TracearrApi>(appName, version, config);
+            tracearrApi_->GetValid() ? LogServerConnectionSuccess(GetFormattedTracearr(), tracearrApi_.get()) : LogServerConnectionError(GetFormattedTracearr(), tracearrApi_.get());
+         }
+      }
+
       void GetTasks(std::vector<Task>& tasks)
       {
          InitializeTasks(plexApis_, tasks);
          InitializeTasks(tautulliApis_, tasks);
          InitializeTasks(embyApis_, tasks);
          InitializeTasks(jellystatApis_, tasks);
+         InitializeApiTasks(tracearrApi_.get(), tasks);
       }
 
       void Shutdown()
@@ -62,6 +73,7 @@ namespace warp
          std::ranges::for_each(jellystatApis_, [](auto& api) {
             api->Shutdown();
          });
+         if (tracearrApi_) tracearrApi_->Shutdown();
       }
 
       void LogServerConnectionSuccess(std::string_view serverName, ApiBase* api)
@@ -101,16 +113,22 @@ namespace warp
          return api.get();
       }
 
+      void InitializeApiTasks(ApiBase* api, std::vector<Task>& tasks)
+      {
+         if (!api) return;
+
+         if (auto taskList = api->GetTaskList())
+         {
+            for (const auto& task : *taskList) tasks.emplace_back(task);
+         }
+      }
+
       template <typename ContainerT>
       void InitializeTasks(ContainerT& container, std::vector<Task>& tasks)
       {
          for (auto& api : container)
          {
-            auto taskList = api->GetTaskList();
-            if (taskList)
-            {
-               for (const auto& task : *taskList) tasks.emplace_back(task);
-            }
+            InitializeApiTasks(api.get(), tasks);
          }
       }
 
@@ -144,6 +162,11 @@ namespace warp
          return FindApi(jellystatApis_, name);
       }
 
+      TracearrApi* GetTracearrApi() const
+      {
+         return tracearrApi_.get();
+      }
+
       ApiBase* GetApi(ApiType type, std::string_view name) const
       {
          switch (type)
@@ -152,6 +175,7 @@ namespace warp
             case ApiType::EMBY:      return FindApi(embyApis_, name);
             case ApiType::TAUTULLI:  return FindApi(tautulliApis_, name);
             case ApiType::JELLYSTAT: return FindApi(jellystatApis_, name);
+            case ApiType::TRACEARR:  return tracearrApi_.get();
             default:                 return nullptr;
          }
       }
@@ -164,6 +188,7 @@ namespace warp
    {
       pimpl_->SetupPlexApis(appName, version, config.plexConfig);
       pimpl_->SetupEmbyApis(appName, version, config.embyConfig);
+      pimpl_->SetupTracearrApi(appName, version, config.tracearrConfig);
    }
 
    ApiManager::~ApiManager() = default;
@@ -196,6 +221,11 @@ namespace warp
    JellystatApi* ApiManager::GetJellystatApi(std::string_view name) const
    {
       return pimpl_->GetJellystatApi(name);
+   }
+
+   TracearrApi* ApiManager::GetTracearrApi() const
+   {
+      return pimpl_->GetTracearrApi();
    }
 
    ApiBase* ApiManager::GetApi(ApiType type, std::string_view name) const

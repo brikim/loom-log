@@ -12,7 +12,7 @@ namespace warp
    class TracearrApi : public ApiBase
    {
    public:
-      TracearrApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig);
+      TracearrApi(std::string_view appName, std::string_view version, const TracearrConfig& serverConfig);
       virtual ~TracearrApi();
 
       // Returns true if the server is reachable and the API key is valid

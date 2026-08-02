@@ -26,6 +26,14 @@ namespace warp
       std::filesystem::path mediaPath;
    };
 
+   struct TracearrConfig
+   {
+      bool enabled{false};
+      std::string serverName;
+      std::string url;
+      std::string apiKey;
+   };
+
    struct ServerPlexOptions
    {
       bool enableCacheCollection{false};

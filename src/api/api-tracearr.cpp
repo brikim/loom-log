@@ -36,7 +36,7 @@ namespace warp
       };
    }
 
-   TracearrApi::TracearrApi(std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
+   TracearrApi::TracearrApi(std::string_view appName, std::string_view version, const TracearrConfig& serverConfig)
       : ApiBase(ApiBaseData{.name = serverConfig.serverName,
             .url = serverConfig.url,
             .apiKey = serverConfig.apiKey,
