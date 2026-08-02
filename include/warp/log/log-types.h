@@ -24,12 +24,14 @@ namespace warp
    inline const std::string ANSI_CODE_EMBY{std::format("{}77{}", ANSI_CODE_START, ANSI_CODE_END)};
    inline const std::string ANSI_CODE_TAUTULLI{std::format("{}136{}", ANSI_CODE_START, ANSI_CODE_END)};
    inline const std::string ANSI_CODE_JELLYSTAT{std::format("{}63{}", ANSI_CODE_START, ANSI_CODE_END)};
+   inline const std::string ANSI_CODE_TRACEARR{std::format("{}87{}", ANSI_CODE_START, ANSI_CODE_END)};
 
    inline const std::string ANSI_FORMATTED_UNKNOWN("Unknown Server");
    inline const std::string ANSI_FORMATTED_PLEX(std::format("{}Plex{}", ANSI_CODE_PLEX, ANSI_CODE_LOG));
    inline const std::string ANSI_FORMATTED_EMBY(std::format("{}Emby{}", ANSI_CODE_EMBY, ANSI_CODE_LOG));
    inline const std::string ANSI_FORMATTED_TAUTULLI(std::format("{}Tautulli{}", ANSI_CODE_TAUTULLI, ANSI_CODE_LOG));
    inline const std::string ANSI_FORMATTED_JELLYSTAT(std::format("{}Jellystat{}", ANSI_CODE_JELLYSTAT, ANSI_CODE_LOG));
+   inline const std::string ANSI_FORMATTED_TRACEARR(std::format("{}Tracearr{}", ANSI_CODE_TRACEARR, ANSI_CODE_LOG));
 
    enum class LogType
    {

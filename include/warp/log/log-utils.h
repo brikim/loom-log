@@ -61,6 +61,11 @@ namespace warp
       return ANSI_FORMATTED_JELLYSTAT;
    }
 
+   inline std::string_view GetFormattedTracearr()
+   {
+      return ANSI_FORMATTED_TRACEARR;
+   }
+
    inline std::string GetServiceHeader(std::string_view ansiiCode, std::string_view name)
    {
       return std::format("{}{}{}", ansiiCode, name, ANSI_CODE_LOG);
