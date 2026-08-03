@@ -133,7 +133,8 @@ namespace warp
    std::optional<TracearrHistoryItems> TracearrApi::GetWatchHistory()
    {
       ApiParams params = {
-         {"state", "stopped"}
+         {"state", "stopped"},
+         {"pageSize", "50"}
       };
 
       auto res = Get(BuildApiParamsPath(API_GET_HISTORY, params), pimpl_->headers_);
@@ -172,7 +173,15 @@ namespace warp
             auto [ptr, ec] = std::from_chars(item.totalDurationMs->data(), item.totalDurationMs->data() + item.totalDurationMs->size(), totalDurationMs);
          }
 
+         auto id = std::format("{}-{}-{}-{}-{}",
+            item.serverName,
+            item.mediaTitle,
+            item.mediaType,
+            item.showTitle.value_or(""),
+            item.user.userName);
+
          returnResponse.items.emplace_back(TracearrHistoryItem{
+            .id = std::move(id),
             .serverName = std::move(item.serverName),
             .mediaTitle = std::move(item.mediaTitle),
             .mediaType = std::move(item.mediaType),

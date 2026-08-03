@@ -8,6 +8,7 @@ namespace warp
 {
    struct TracearrHistoryItem
    {
+      std::string id;
       std::string serverName;
       std::string mediaTitle;
       std::string mediaType;
