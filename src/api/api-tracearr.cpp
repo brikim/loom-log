@@ -47,6 +47,8 @@ namespace warp
       : parent_(p)
       , configServers_(configServers)
    {
+      servers_.reserve(configServers.size());
+
       headers_ = {
          {"Authorization", std::format("Bearer {}", parent_.GetApiKey())},
          {"Content-Type", APPLICATION_JSON},
@@ -127,6 +129,68 @@ namespace warp
       return !servers_.empty();
    }
 
+   // Returns the watch history for all servers
+   std::optional<TracearrHistoryItems> TracearrApi::GetWatchHistory()
+   {
+      ApiParams params = {
+         {"state", "stopped"}
+      };
+
+      auto res = Get(BuildApiParamsPath(API_GET_HISTORY, params), pimpl_->headers_);
+      if (!IsHttpSuccess(__func__, res))
+      {
+         return std::nullopt;
+      }
+
+      JsonTracearrHistoryItems serverResponse;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
+      {
+         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
+         return std::nullopt;
+      }
+
+      // If no items received, return nullopt to signify no history instead of an empty list
+      if (serverResponse.items.empty())
+         return std::nullopt;
+
+      TracearrHistoryItems returnResponse;
+      returnResponse.items.reserve(serverResponse.items.size());
+      for (auto& item : serverResponse.items)
+      {
+         // For now syncing will only work with movies and tv episodes. Ignore other media types for now.
+         if (item.mediaType != "movie" && item.mediaType != "episode")
+         {
+            continue;
+         }
+
+         int progressMs = 0;
+         auto [ptr, ec] = std::from_chars(item.progressMs.data(), item.progressMs.data() + item.progressMs.size(), progressMs);
+
+         int totalDurationMs = 0;
+         if (item.totalDurationMs.has_value())
+         {
+            auto [ptr, ec] = std::from_chars(item.totalDurationMs->data(), item.totalDurationMs->data() + item.totalDurationMs->size(), totalDurationMs);
+         }
+
+         returnResponse.items.emplace_back(TracearrHistoryItem{
+            .serverName = std::move(item.serverName),
+            .mediaTitle = std::move(item.mediaTitle),
+            .mediaType = std::move(item.mediaType),
+            .showTitle = std::move(item.showTitle),
+            .seasonNumber = item.seasonNumber,
+            .episodeNumber = item.episodeNumber,
+            .progressMs = progressMs,
+            .totalDurationMs = totalDurationMs,
+            .startedAt = std::move(item.startedAt),
+            .stoppedAt = std::move(item.stoppedAt),
+            .watched = item.watched,
+            .user = std::move(item.user.userName)
+         });
+      }
+
+      return returnResponse;
+   }
+
    void TracearrApi::TracearrApiImpl::RefreshServerData()
    {
       auto res = parent_.Get(parent_.BuildApiPath(API_GET_HEALTH), headers_);
@@ -144,17 +208,17 @@ namespace warp
       }
 
       servers_.clear();
-      for (const auto& server : serverResponse.servers)
+      for (const auto& configServer : configServers_)
       {
-         auto iter = std::ranges::find_if(configServers_, [&server](const auto& s) {
-            return s.tracearrServerName == server.name;
+         auto iter = std::ranges::find_if(serverResponse.servers, [&configServer](const auto& s) {
+            return s.name == configServer.tracearrServerName;
          });
-         if (iter != configServers_.end())
+         if (iter != serverResponse.servers.end())
          {
             ApiType apiType;
-            if (server.type == "plex")
+            if (iter->type == "plex")
                apiType = ApiType::PLEX;
-            else if (server.type == "emby")
+            else if (iter->type == "emby")
                apiType = ApiType::EMBY;
             else
                continue;
@@ -162,9 +226,14 @@ namespace warp
             std::unique_lock lock(dataLock_);
             servers_.emplace_back(ServerData{
                .apiType = apiType,
-               .tracearrServerName = server.name,
-               .serverName = iter->serverName
+               .tracearrServerName = std::move(iter->name),
+               .serverName = configServer.serverName
             });
+         }
+         else
+         {
+            parent_.LogWarning("{} - Tracearr Server {} not reported by API",
+                               __func__, configServer.tracearrServerName);
          }
       }
    }

@@ -25,6 +25,9 @@ namespace warp
 
       [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
 
+      // Returns the watch history for all servers
+      [[nodiscard]] std::optional<TracearrHistoryItems> GetWatchHistory();
+
    protected:
       std::string_view GetApiBase() const override;
       std::string_view GetApiTokenName() const override;
