@@ -129,6 +129,19 @@ namespace warp
       return !servers_.empty();
    }
 
+   std::optional<TracearrServerInfo> TracearrApi::GetServerData(std::string_view tracearrServerName) const
+   {
+      std::shared_lock lock(pimpl_->dataLock_);
+      auto iter = std::ranges::find_if(pimpl_->servers_, [tracearrServerName](const auto& server) {
+         return server.tracearrServerName == tracearrServerName;
+      });
+      if (iter != pimpl_->servers_.end())
+      {
+         return TracearrServerInfo{.serverName = iter->serverName, .apiType = iter->apiType};
+      }
+      return std::nullopt;
+   }
+
    // Returns the watch history for all servers
    std::optional<TracearrHistoryItems> TracearrApi::GetWatchHistory()
    {
