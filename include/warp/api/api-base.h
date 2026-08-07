@@ -35,7 +35,7 @@ namespace warp
       [[nodiscard]] virtual std::optional<std::string> GetServerReportedName() = 0;
 
    protected:
-      [[nodiscard]] virtual std::string_view GetApiBase() const = 0;
+      [[nodiscard]] virtual std::string_view GetApiBase(std::optional<int32_t> version) const = 0;
       [[nodiscard]] virtual std::string_view GetApiTokenName() const = 0;
 
       [[nodiscard]] std::string GetNextCronQuickTime() const;
@@ -47,8 +47,8 @@ namespace warp
       [[nodiscard]] Response Delete(const std::string& path, const Headers& headers);
 
       void AddApiParam(std::string& url, const ApiParams& params) const;
-      [[nodiscard]] std::string BuildApiPath(std::string_view path) const;
-      [[nodiscard]] std::string BuildApiParamsPath(std::string_view path, const ApiParams& params) const;
+      [[nodiscard]] std::string BuildApiPath(std::string_view path, std::optional<int32_t> version = std::nullopt) const;
+      [[nodiscard]] std::string BuildApiParamsPath(std::string_view path, const ApiParams& params, std::optional<int32_t> version = std::nullopt) const;
 
       // Returns if the http request was successful and outputs to the log if not successful
       bool IsHttpSuccess(std::string_view name, const Response& response, bool log = true);

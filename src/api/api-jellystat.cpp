@@ -47,12 +47,11 @@ namespace warp
             .ansiiCode = ANSI_CODE_JELLYSTAT,
             .prettyName = GetServerName(GetFormattedJellystat(), serverConfig.serverName)})
       , pimpl_(std::make_unique<JellystatApiImpl>(*this, appName, version))
-   {
-   }
+   {}
 
    JellystatApi::~JellystatApi() = default;
 
-   std::string_view JellystatApi::GetApiBase() const
+   std::string_view JellystatApi::GetApiBase([[maybe_unused]] std::optional<int32_t> version) const
    {
       return API_BASE;
    }

@@ -15,9 +15,14 @@ namespace warp
 {
    namespace
    {
-      constexpr std::string_view API_BASE{"/api/v1/public"};
+      constexpr std::string_view API_V1_BASE{"/api/v1/public"};
+      constexpr std::string_view API_V2_BASE{"/api/v2/public"};
       constexpr std::string_view API_GET_HEALTH{"/health"};
       constexpr std::string_view API_GET_HISTORY{"/history"};
+
+      constexpr std::string_view TRACEARR_MEDIA_TYPE_MOVIE{"movie"};
+      constexpr std::string_view TRACEARR_MEDIA_TYPE_EPISODE{"episode"};
+      constexpr std::string_view TRACEARR_STOPPED("stopped");
    }
 
    struct ServerData
@@ -87,9 +92,24 @@ namespace warp
       return tasks;
    }
 
-   std::string_view TracearrApi::GetApiBase() const
+   std::string_view TracearrApi::GetApiBase(std::optional<int32_t> version) const
    {
-      return API_BASE;
+      if (!version)
+      {
+         LogWarning("{} - API version not set. Defaulting to v1", __func__);
+         return API_V1_BASE;
+      }
+
+      switch (version.value())
+      {
+         case 1:
+            return API_V1_BASE;
+         case 2:
+            return API_V2_BASE;
+         default:
+            LogWarning("{} - Unknown API version: {}. Defaulting to v1", __func__, version.value());
+            return API_V1_BASE;
+      }
    }
 
    std::string_view TracearrApi::GetApiTokenName() const
@@ -100,13 +120,13 @@ namespace warp
 
    bool TracearrApi::GetValid()
    {
-      auto res = Get(BuildApiPath(API_GET_HEALTH), pimpl_->headers_);
+      auto res = Get(BuildApiPath(API_GET_HEALTH, 1), pimpl_->headers_);
       return res.error == Error::Success && res.status < VALID_HTTP_RESPONSE_MAX;
    }
 
    std::optional<std::string> TracearrApi::GetServerReportedName()
    {
-      auto res = Get(BuildApiPath(API_GET_HEALTH), pimpl_->headers_);
+      auto res = Get(BuildApiPath(API_GET_HEALTH, 1), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          return std::nullopt;
@@ -143,14 +163,14 @@ namespace warp
    }
 
    // Returns the watch history for all servers
-   std::optional<TracearrHistoryItems> TracearrApi::GetWatchHistory()
+   std::optional<TracearrHistoryItems> TracearrApi::GetWatchHistory(std::string_view dateForHistory)
    {
       ApiParams params = {
-         {"state", "stopped"},
+         {"since", dateForHistory},
          {"pageSize", "50"}
       };
 
-      auto res = Get(BuildApiParamsPath(API_GET_HISTORY, params), pimpl_->headers_);
+      auto res = Get(BuildApiParamsPath(API_GET_HISTORY, params, 2), pimpl_->headers_);
       if (!IsHttpSuccess(__func__, res))
       {
          return std::nullopt;
@@ -172,7 +192,7 @@ namespace warp
       for (auto& item : serverResponse.items)
       {
          // For now syncing will only work with movies and tv episodes. Ignore other media types for now.
-         if (item.mediaType != "movie" && item.mediaType != "episode")
+         if (item.mediaType != TRACEARR_MEDIA_TYPE_MOVIE && item.mediaType != TRACEARR_MEDIA_TYPE_EPISODE && item.state != TRACEARR_STOPPED)
          {
             continue;
          }
@@ -193,9 +213,12 @@ namespace warp
             item.showTitle.value_or(""),
             item.user.userName);
 
+         auto fullName = item.showTitle.has_value() ? std::format("{} - {}", item.showTitle.value(), item.mediaTitle) : item.mediaTitle;
+
          returnResponse.items.emplace_back(TracearrHistoryItem{
             .id = std::move(id),
             .serverName = std::move(item.serverName),
+            .fullName = std::move(fullName),
             .mediaTitle = std::move(item.mediaTitle),
             .mediaType = std::move(item.mediaType),
             .showTitle = std::move(item.showTitle),
@@ -203,9 +226,11 @@ namespace warp
             .episodeNumber = item.episodeNumber,
             .progressMs = progressMs,
             .totalDurationMs = totalDurationMs,
+            .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete)),
             .startedAt = std::move(item.startedAt),
             .stoppedAt = std::move(item.stoppedAt),
             .watched = item.watched,
+            .serverRatingKey = std::move(item.serverRatingKey),
             .user = std::move(item.user.userName)
          });
       }
@@ -215,7 +240,7 @@ namespace warp
 
    void TracearrApi::TracearrApiImpl::RefreshServerData()
    {
-      auto res = parent_.Get(parent_.BuildApiPath(API_GET_HEALTH), headers_);
+      auto res = parent_.Get(parent_.BuildApiPath(API_GET_HEALTH, 1), headers_);
       if (!parent_.IsHttpSuccess(__func__, res))
       {
          return;

@@ -19,31 +19,31 @@ namespace warp
       virtual ~Base() = default;
 
       template<typename... Args>
-      void LogTrace(std::format_string<Args...> fmt, Args &&...args)
+      void LogTrace(std::format_string<Args...> fmt, Args &&...args) const
       {
          log::TraceWithHeader(header_, fmt, std::forward<Args>(args)...);
       }
 
       template<typename... Args>
-      void LogInfo(std::format_string<Args...> fmt, Args &&...args)
+      void LogInfo(std::format_string<Args...> fmt, Args &&...args) const
       {
          log::InfoWithHeader(header_, fmt, std::forward<Args>(args)...);
       }
 
       template<typename... Args>
-      void LogWarning(std::format_string<Args...> fmt, Args&&... args)
+      void LogWarning(std::format_string<Args...> fmt, Args&&... args) const
       {
          log::WarningWithHeader(header_, fmt, std::forward<Args>(args)...);
       }
 
       template<typename... Args>
-      void LogError(std::format_string<Args...> fmt, Args &&...args)
+      void LogError(std::format_string<Args...> fmt, Args &&...args) const
       {
          log::ErrorWithHeader(header_, fmt, std::forward<Args>(args)...);
       }
 
       template<typename... Args>
-      void Log(LogType type, std::string_view fmt, Args &&...args)
+      void Log(LogType type, std::string_view fmt, Args &&...args) const
       {
          switch (type)
          {

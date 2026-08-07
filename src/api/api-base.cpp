@@ -58,8 +58,7 @@ namespace warp
    ApiBase::ApiBase(const ApiBaseData& data)
       : Base(data.className, data.ansiiCode, data.name)
       , pimpl_(std::make_unique<ApiBaseImpl>(data))
-   {
-   }
+   {}
 
    ApiBase::~ApiBase() = default;
 
@@ -135,18 +134,18 @@ namespace warp
       }
    }
 
-   std::string ApiBase::BuildApiPath(std::string_view path) const
+   std::string ApiBase::BuildApiPath(std::string_view path, std::optional<int32_t> version) const
    {
       auto apiTokenName = GetApiTokenName();
       char separator = (path.find('?') == std::string_view::npos) ? '?' : '&';
       if (apiTokenName.empty())
       {
-         return std::format("{}{}", GetApiBase(), path);
+         return std::format("{}{}", GetApiBase(version), path);
       }
       else
       {
          return std::format("{}{}{}{}={}",
-                            GetApiBase(),
+                            GetApiBase(version),
                             path,
                             separator,
                             apiTokenName,
@@ -154,9 +153,9 @@ namespace warp
       }
    }
 
-   std::string ApiBase::BuildApiParamsPath(std::string_view path, const ApiParams& params) const
+   std::string ApiBase::BuildApiParamsPath(std::string_view path, const ApiParams& params, std::optional<int32_t> version) const
    {
-      auto apiPath = BuildApiPath(path);
+      auto apiPath = BuildApiPath(path, version);
       AddApiParam(apiPath, params);
       return apiPath;
    }

@@ -35,10 +35,10 @@ namespace warp
       [[nodiscard]] std::optional<TracearrServerInfo> GetServerData(std::string_view tracearrServerName) const;
 
       // Returns the watch history for all servers
-      [[nodiscard]] std::optional<TracearrHistoryItems> GetWatchHistory();
+      [[nodiscard]] std::optional<TracearrHistoryItems> GetWatchHistory(std::string_view dateForHistory);
 
    protected:
-      std::string_view GetApiBase() const override;
+      std::string_view GetApiBase(std::optional<int32_t> version) const override;
       std::string_view GetApiTokenName() const override;
 
    private:

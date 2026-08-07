@@ -37,6 +37,7 @@ namespace warp
       constexpr std::string_view BACKDROP("Backdrop");
       constexpr std::string_view PARENT_ID("ParentId");
       constexpr std::string_view INCLUDE_ITEM_TYPES("IncludeItemTypes");
+      constexpr std::string_view EPISODE{"Episode"};
    }
 
    struct EmbyApi::EmbyApiImpl
@@ -143,7 +144,7 @@ namespace warp
       return tasks;
    }
 
-   std::string_view EmbyApi::GetApiBase() const
+   std::string_view EmbyApi::GetApiBase([[maybe_unused]] std::optional<int32_t> version) const
    {
       return API_BASE;
    }
@@ -265,6 +266,55 @@ namespace warp
       }
 
       LogWarning("{} returned no valid results {}", __func__, GetTag("search", name));
+      return std::nullopt;
+   }
+
+   std::optional<EmbyItem> EmbyApi::GetEpisodeItem(std::string_view seriesName, std::string_view episodeName, int32_t seasonNum, int32_t episodeNum)
+   {
+      auto searchTerm = std::format("{} {}", seriesName.data(), episodeName.data());
+      ApiParams params = {
+         {RECURSIVE, "true"},
+         {SEARCH_TERM, searchTerm},
+         {FIELDS, "Path,SeriesName,RunTimeTicks"}
+      };
+
+      auto res = Get(BuildApiParamsPath(API_ITEMS, params), pimpl_->headers_);
+      if (!IsHttpSuccess(__func__, res))
+         return std::nullopt;
+
+      JsonEmbyItemsResponse response;
+      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
+      {
+         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
+         return std::nullopt;
+      }
+
+      // Use a lambda to find the specific item based on the search type
+      auto it = std::ranges::find_if(response.Items, [&](const JsonEmbyItem& item) {
+         return item.Type == EPISODE && item.SeriesName == seriesName && item.Name == episodeName && item.ParentIndexNumber == seasonNum && item.IndexNumber == episodeNum;
+      });
+
+      if (it != response.Items.end())
+      {
+         auto& match = *it;
+         EmbyItem returnItem;
+
+         // Move flat data
+         returnItem.id = std::move(match.Id);
+         returnItem.type = std::move(match.Type);
+         returnItem.name = std::move(match.Name);
+         returnItem.path = std::move(match.Path);
+         returnItem.runTimeTicks = match.RunTimeTicks;
+
+         // Populate nested series data
+         returnItem.series.name = std::move(match.SeriesName);
+         returnItem.series.seasonNum = match.ParentIndexNumber;
+         returnItem.series.episodeNum = match.IndexNumber;
+
+         return returnItem;
+      }
+
+      LogWarning("{} returned no valid results {} {}", __func__, GetTag("Series", seriesName), GetTag(EPISODE, episodeName));
       return std::nullopt;
    }
 

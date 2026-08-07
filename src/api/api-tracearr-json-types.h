@@ -45,27 +45,31 @@ namespace warp
       std::optional<int> episodeNumber;
       std::string progressMs;
       std::optional<std::string> totalDurationMs;
+      double percentComplete{0.0};
       std::string startedAt;
       std::optional<std::string> stoppedAt;
       bool watched{false};
+      std::string serverRatingKey;
       JsonTracearrHistoryUser user;
 
       struct glaze
       {
          // Glaze knows how to handle chrono types automatically
          static constexpr auto value = glz::object(
-            "serverName", &JsonTracearrHistoryItem::serverName,
+            "server_name", &JsonTracearrHistoryItem::serverName,
             "state", &JsonTracearrHistoryItem::state,
-            "mediaTitle", &JsonTracearrHistoryItem::mediaTitle,
-            "mediaType", &JsonTracearrHistoryItem::mediaType,
-            "showTitle", &JsonTracearrHistoryItem::showTitle,
-            "seasonNumber", &JsonTracearrHistoryItem::seasonNumber,
-            "episodeNumber", &JsonTracearrHistoryItem::episodeNumber,
-            "progressMs", &JsonTracearrHistoryItem::progressMs,
-            "totalDurationMs", &JsonTracearrHistoryItem::totalDurationMs,
-            "startedAt", &JsonTracearrHistoryItem::startedAt,
-            "stoppedAt", &JsonTracearrHistoryItem::stoppedAt,
+            "media_title", &JsonTracearrHistoryItem::mediaTitle,
+            "media_type", &JsonTracearrHistoryItem::mediaType,
+            "show_title", &JsonTracearrHistoryItem::showTitle,
+            "season_number", &JsonTracearrHistoryItem::seasonNumber,
+            "episode_number", &JsonTracearrHistoryItem::episodeNumber,
+            "progress_ms", &JsonTracearrHistoryItem::progressMs,
+            "total_duration_ms", &JsonTracearrHistoryItem::totalDurationMs,
+            "percent_complete", &JsonTracearrHistoryItem::percentComplete,
+            "started_at", &JsonTracearrHistoryItem::startedAt,
+            "stopped_at", &JsonTracearrHistoryItem::stoppedAt,
             "watched", &JsonTracearrHistoryItem::watched,
+            "rating_key", &JsonTracearrHistoryItem::serverRatingKey,
             "user", &JsonTracearrHistoryItem::user
          );
       };

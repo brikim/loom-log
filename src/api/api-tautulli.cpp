@@ -81,8 +81,7 @@ namespace warp
             .ansiiCode = ANSI_CODE_TAUTULLI,
             .prettyName = GetServerName(GetFormattedTautulli(), serverConfig.serverName)})
       , pimpl_(std::make_unique<TautulliApiImpl>(*this, appName, version))
-   {
-   }
+   {}
 
    TautulliApi::~TautulliApi() = default;
 
@@ -103,7 +102,7 @@ namespace warp
       return tasks;
    }
 
-   std::string_view TautulliApi::GetApiBase() const
+   std::string_view TautulliApi::GetApiBase([[maybe_unused]] std::optional<int32_t> version) const
    {
       return API_BASE;
    }

@@ -31,6 +31,7 @@ namespace warp
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName);
 
       std::optional<EmbyItem> GetItem(EmbySearchType type, std::string_view name, const ApiParams& extraSearchArgs = {});
+      std::optional<EmbyItem> GetEpisodeItem(std::string_view seriesName, std::string_view episodeName, int32_t seasonNum, int32_t episodeNum);
 
       [[nodiscard]] std::optional<EmbyUserData> GetUser(std::string_view name);
 
@@ -59,7 +60,7 @@ namespace warp
       [[nodiscard]] std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
 
    protected:
-      std::string_view GetApiBase() const override;
+      std::string_view GetApiBase(std::optional<int32_t> version) const override;
       std::string_view GetApiTokenName() const override;
 
    private:
