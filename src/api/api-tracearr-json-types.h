@@ -37,6 +37,7 @@ namespace warp
    struct JsonTracearrHistoryItem
    {
       std::string serverName;
+      std::string serverType;
       std::string state;
       std::string mediaTitle;
       std::string mediaType;
@@ -57,6 +58,7 @@ namespace warp
          // Glaze knows how to handle chrono types automatically
          static constexpr auto value = glz::object(
             "server_name", &JsonTracearrHistoryItem::serverName,
+            "server_type", &JsonTracearrHistoryItem::serverType,
             "state", &JsonTracearrHistoryItem::state,
             "media_title", &JsonTracearrHistoryItem::mediaTitle,
             "media_type", &JsonTracearrHistoryItem::mediaType,

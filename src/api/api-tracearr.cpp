@@ -38,29 +38,17 @@ namespace warp
       Headers headers_;
       mutable std::shared_mutex dataLock_;
 
-      std::vector<TracearrServerData> configServers_;
-      std::vector<ServerData> servers_;
-
-      TracearrApiImpl(TracearrApi& p, std::string_view appName, std::string_view version, const std::vector<TracearrServerData>& configServers);
-
-      void RefreshServerData();
-      void RefreshCache(bool forceRefresh);
-      bool GetServersValid() const;
+      TracearrApiImpl(TracearrApi& p, std::string_view appName, std::string_view version);
    };
 
-   TracearrApi::TracearrApiImpl::TracearrApiImpl(TracearrApi& p, std::string_view appName, std::string_view version, const std::vector<TracearrServerData>& configServers)
+   TracearrApi::TracearrApiImpl::TracearrApiImpl(TracearrApi& p, std::string_view appName, std::string_view version)
       : parent_(p)
-      , configServers_(configServers)
    {
-      servers_.reserve(configServers.size());
-
       headers_ = {
          {"Authorization", std::format("Bearer {}", parent_.GetApiKey())},
          {"Content-Type", APPLICATION_JSON},
          {"User-Agent", std::format("{}/{}", appName, version)}
       };
-
-      RefreshCache(true);
    }
 
    TracearrApi::TracearrApi(std::string_view appName, std::string_view version, const TracearrConfig& serverConfig)
@@ -70,27 +58,10 @@ namespace warp
             .className = "TracearrApi",
             .ansiiCode = ANSI_CODE_TRACEARR,
             .prettyName = GetServerName(GetFormattedTracearr(), serverConfig.serverName)})
-      , pimpl_(std::make_unique<TracearrApiImpl>(*this, appName, version, serverConfig.servers))
+      , pimpl_(std::make_unique<TracearrApiImpl>(*this, appName, version))
    {}
 
    TracearrApi::~TracearrApi() = default;
-
-   std::optional<std::vector<Task>> TracearrApi::GetTaskList()
-   {
-      std::vector<Task> tasks;
-
-      auto& quickCheck = tasks.emplace_back();
-      quickCheck.name = std::format("{} - Refresh Server Quick", GetPrettyName());
-      quickCheck.cronExpression = GetNextCronQuickTime();
-      quickCheck.func = [this]() {pimpl_->RefreshCache(false); };
-
-      auto& fullUpdate = tasks.emplace_back();
-      fullUpdate.name = std::format("{} - Server Update", GetPrettyName());
-      fullUpdate.cronExpression = GetNextCronFullTime();
-      fullUpdate.func = [this]() {pimpl_->RefreshCache(true); };
-
-      return tasks;
-   }
 
    std::string_view TracearrApi::GetApiBase(std::optional<int32_t> version) const
    {
@@ -141,25 +112,6 @@ namespace warp
       }
 
       return std::format("Tracearr({})", serverResponse.version);
-   }
-
-   bool TracearrApi::TracearrApiImpl::GetServersValid() const
-   {
-      std::shared_lock lock(dataLock_);
-      return !servers_.empty();
-   }
-
-   std::optional<TracearrServerInfo> TracearrApi::GetServerData(std::string_view tracearrServerName) const
-   {
-      std::shared_lock lock(pimpl_->dataLock_);
-      auto iter = std::ranges::find_if(pimpl_->servers_, [tracearrServerName](const auto& server) {
-         return server.tracearrServerName == tracearrServerName;
-      });
-      if (iter != pimpl_->servers_.end())
-      {
-         return TracearrServerInfo{.serverName = iter->serverName, .apiType = iter->apiType};
-      }
-      return std::nullopt;
    }
 
    // Returns the watch history for all servers
@@ -215,9 +167,29 @@ namespace warp
 
          auto fullName = item.showTitle.has_value() ? std::format("{} - {}", item.showTitle.value(), item.mediaTitle) : item.mediaTitle;
 
+         TracearrServerType serverType;
+         if (item.serverType == "plex")
+         {
+            serverType = TracearrServerType::PLEX;
+         }
+         else if (item.serverType == "emby")
+         {
+            serverType = TracearrServerType::EMBY;
+         }
+         else if (item.serverType == "jellyfin")
+         {
+            serverType = TracearrServerType::JELLYFIN;
+         }
+         else
+         {
+            LogWarning("{} - Unknown server type: {}. Skipping item.", __func__, item.serverType);
+            continue;
+         }
+
          returnResponse.items.emplace_back(TracearrHistoryItem{
             .id = std::move(id),
             .serverName = std::move(item.serverName),
+            .serverType = serverType,
             .fullName = std::move(fullName),
             .mediaTitle = std::move(item.mediaTitle),
             .mediaType = std::move(item.mediaType),
@@ -227,8 +199,7 @@ namespace warp
             .progressMs = progressMs,
             .totalDurationMs = totalDurationMs,
             .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete)),
-            .startedAt = std::move(item.startedAt),
-            .stoppedAt = std::move(item.stoppedAt),
+            .watchTime = item.stoppedAt.has_value() ? std::move(item.stoppedAt.value()) : std::move(item.startedAt),
             .watched = item.watched,
             .serverRatingKey = std::move(item.serverRatingKey),
             .user = std::move(item.user.userName)
@@ -236,58 +207,5 @@ namespace warp
       }
 
       return returnResponse;
-   }
-
-   void TracearrApi::TracearrApiImpl::RefreshServerData()
-   {
-      auto res = parent_.Get(parent_.BuildApiPath(API_GET_HEALTH, 1), headers_);
-      if (!parent_.IsHttpSuccess(__func__, res))
-      {
-         return;
-      }
-
-      JsonHealthResponse serverResponse;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (serverResponse, res.body))
-      {
-         parent_.LogWarning("{} - JSON Parse Error: {}",
-                            __func__, glz::format_error(ec, res.body));
-         return;
-      }
-
-      servers_.clear();
-      for (const auto& configServer : configServers_)
-      {
-         auto iter = std::ranges::find_if(serverResponse.servers, [&configServer](const auto& s) {
-            return s.name == configServer.tracearrServerName;
-         });
-         if (iter != serverResponse.servers.end())
-         {
-            ApiType apiType;
-            if (iter->type == "plex")
-               apiType = ApiType::PLEX;
-            else if (iter->type == "emby")
-               apiType = ApiType::EMBY;
-            else
-               continue;
-
-            std::unique_lock lock(dataLock_);
-            servers_.emplace_back(ServerData{
-               .apiType = apiType,
-               .tracearrServerName = std::move(iter->name),
-               .serverName = configServer.serverName
-            });
-         }
-         else
-         {
-            parent_.LogWarning("{} - Tracearr Server {} not reported by API",
-                               __func__, configServer.tracearrServerName);
-         }
-      }
-   }
-
-   void TracearrApi::TracearrApiImpl::RefreshCache(bool forceRefresh)
-   {
-      if (forceRefresh || !GetServersValid())
-         RefreshServerData();
    }
 }

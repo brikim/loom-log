@@ -28,10 +28,10 @@ namespace warp
       [[nodiscard]] bool GetValid() override;
       [[nodiscard]] const std::filesystem::path& GetMediaPath() const;
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
+      [[nodiscard]] std::optional<std::string> GetTracearrServerName() const;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName);
 
       std::optional<EmbyItem> GetItem(EmbySearchType type, std::string_view name, const ApiParams& extraSearchArgs = {});
-      std::optional<EmbyItem> GetEpisodeItem(std::string_view seriesName, std::string_view episodeName, int32_t seasonNum, int32_t episodeNum);
 
       [[nodiscard]] std::optional<EmbyUserData> GetUser(std::string_view name);
 
@@ -57,7 +57,9 @@ namespace warp
       void SetMediaScan(const std::vector<EmbyMediaUpdate>& updates);
 
       [[nodiscard]] bool GetPathCacheEmpty() const;
+      [[nodiscard]] std::optional<std::filesystem::path> GetItemPath(std::string_view id);
       [[nodiscard]] std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
+
 
    protected:
       std::string_view GetApiBase(std::optional<int32_t> version) const override;

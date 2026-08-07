@@ -29,11 +29,6 @@ namespace warp
       [[nodiscard]] bool GetValid() override;
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
 
-      [[nodiscard]] std::optional<std::vector<Task>> GetTaskList() override;
-
-      // Returns the server name for the given tracearr server name, or nullopt if not found
-      [[nodiscard]] std::optional<TracearrServerInfo> GetServerData(std::string_view tracearrServerName) const;
-
       // Returns the watch history for all servers
       [[nodiscard]] std::optional<TracearrHistoryItems> GetWatchHistory(std::string_view dateForHistory);
 

@@ -39,6 +39,8 @@ namespace warp
 
    struct PlexApi::PlexApiImpl
    {
+      std::optional<std::string> tracearrServerName_;
+
       httplib::Client plexTvClient_;
       httplib::Headers plexTvHeaders_;
 
@@ -98,14 +100,16 @@ namespace warp
       void UpdateUserTokens(bool forceRefresh);
       void RefreshCache(bool forceRefresh);
 
-      std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
+      [[nodiscard]] std::optional<std::string> GetTracearrServerName() const;
+      [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
 
       // Returns the collection api path
-      std::string GetCollectionKey(std::string_view library, std::string_view collection);
+      [[nodiscard]] std::string GetCollectionKey(std::string_view library, std::string_view collection);
    };
 
    PlexApi::PlexApiImpl::PlexApiImpl(PlexApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
-      : plexTvClient_(PLEX_RESOURCE_URL)
+      : tracearrServerName_(serverConfig.tracearrServerName)
+      , plexTvClient_(PLEX_RESOURCE_URL)
       , parent_(p)
       , mediaPath_(serverConfig.mediaPath)
    {
@@ -247,6 +251,16 @@ namespace warp
 
       // Return the first name
       return serverResponse.response.data[0].name;
+   }
+
+   std::optional<std::string> PlexApi::PlexApiImpl::GetTracearrServerName() const
+   {
+      return tracearrServerName_;
+   }
+
+   std::optional<std::string> PlexApi::GetTracearrServerName() const
+   {
+      return pimpl_->GetTracearrServerName();
    }
 
    std::optional<std::string> PlexApi::PlexApiImpl::GetLibraryId(std::string_view libraryName) const

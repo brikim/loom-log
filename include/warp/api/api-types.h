@@ -20,17 +20,12 @@ namespace warp
    struct ServerConfig
    {
       std::string serverName;
+      std::optional<std::string> tracearrServerName;
       std::string url;
       std::string apiKey;
       std::string trackerUrl;
       std::string trackerApiKey;
       std::filesystem::path mediaPath;
-   };
-
-   struct TracearrServerData
-   {
-      std::string tracearrServerName;
-      std::string serverName;
    };
 
    struct TracearrConfig
@@ -39,7 +34,6 @@ namespace warp
       std::string serverName;
       std::string url;
       std::string apiKey;
-      std::vector<TracearrServerData> servers;
    };
 
    struct ServerPlexOptions

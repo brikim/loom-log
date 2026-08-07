@@ -45,16 +45,20 @@ namespace warp
       EmbyApi& parent_;
       Headers headers_;
       std::filesystem::path mediaPath_;
-
+      std::optional<std::string> tracearrServerName_;
       std::string lastSyncTimestamp_;
 
       using EmbyNameToIdMap = std::unordered_map<std::string, std::string, StringHash, std::equal_to<>>;
       EmbyNameToIdMap libraries_;
       EmbyNameToIdMap users_;
 
-      using EmbyPathMap = std::unordered_map<std::filesystem::path, std::string, PathHash>;
       bool enableCachePaths_{false};
-      EmbyPathMap pathMap_;
+
+      using EmbyPathToIdMap = std::unordered_map<std::filesystem::path, std::string, PathHash>;
+      EmbyPathToIdMap pathToIdCache_;
+
+      using EmbyIdToPathMap = std::unordered_map<std::string, std::filesystem::path, StringHash, std::equal_to<>>;
+      EmbyIdToPathMap idToPathCache_;
 
       mutable std::shared_mutex dataLock_;
 
@@ -70,6 +74,7 @@ namespace warp
 
       bool GetPathCacheEmpty() const;
       std::optional<std::string> GetIdFromPath(const std::filesystem::path& path);
+      std::optional<std::filesystem::path> GetItemPath(std::string_view id);
 
       void RebuildPathMap();
       void CheckForPathMapUpdates();
@@ -81,14 +86,15 @@ namespace warp
       void UpdateCachePaths(bool forceRefresh);
       void RefreshCache(bool forceRefresh);
 
-      std::string_view GetSearchTypeStr(EmbySearchType type);
-
-      std::string CreateUpdateJson(const std::vector<EmbyMediaUpdate>& updates);
+      [[nodiscard]] std::optional<std::string> GetTracearrServerName() const;
+      [[nodiscard]] std::string_view GetSearchTypeStr(EmbySearchType type);
+      [[nodiscard]] std::string CreateUpdateJson(const std::vector<EmbyMediaUpdate>& updates);
    };
 
    EmbyApi::EmbyApiImpl::EmbyApiImpl(EmbyApi& p, std::string_view appName, std::string_view version, const ServerConfig& serverConfig)
       : parent_(p)
       , mediaPath_(serverConfig.mediaPath)
+      , tracearrServerName_(serverConfig.tracearrServerName)
    {
       std::string auth = std::format("MediaBrowser Client=\"{}\", Device=\"PC\", DeviceId=\"{}\", Version=\"{}\", Token=\"{}\"",
                                      appName,
@@ -200,6 +206,16 @@ namespace warp
       return pimpl_->GetLibraryId(libraryName);
    }
 
+   std::optional<std::string> EmbyApi::EmbyApiImpl::GetTracearrServerName() const
+   {
+      return tracearrServerName_;
+   }
+
+   std::optional<std::string> EmbyApi::GetTracearrServerName() const
+   {
+      return pimpl_->GetTracearrServerName();
+   }
+
    std::string_view EmbyApi::EmbyApiImpl::GetSearchTypeStr(EmbySearchType type)
    {
       switch (type)
@@ -266,55 +282,6 @@ namespace warp
       }
 
       LogWarning("{} returned no valid results {}", __func__, GetTag("search", name));
-      return std::nullopt;
-   }
-
-   std::optional<EmbyItem> EmbyApi::GetEpisodeItem(std::string_view seriesName, std::string_view episodeName, int32_t seasonNum, int32_t episodeNum)
-   {
-      auto searchTerm = std::format("{} {}", seriesName.data(), episodeName.data());
-      ApiParams params = {
-         {RECURSIVE, "true"},
-         {SEARCH_TERM, searchTerm},
-         {FIELDS, "Path,SeriesName,RunTimeTicks"}
-      };
-
-      auto res = Get(BuildApiParamsPath(API_ITEMS, params), pimpl_->headers_);
-      if (!IsHttpSuccess(__func__, res))
-         return std::nullopt;
-
-      JsonEmbyItemsResponse response;
-      if (auto ec = glz::read < glz::opts{.error_on_unknown_keys = false} > (response, res.body))
-      {
-         LogWarning("{} - JSON Parse Error: {}", __func__, glz::format_error(ec, res.body));
-         return std::nullopt;
-      }
-
-      // Use a lambda to find the specific item based on the search type
-      auto it = std::ranges::find_if(response.Items, [&](const JsonEmbyItem& item) {
-         return item.Type == EPISODE && item.SeriesName == seriesName && item.Name == episodeName && item.ParentIndexNumber == seasonNum && item.IndexNumber == episodeNum;
-      });
-
-      if (it != response.Items.end())
-      {
-         auto& match = *it;
-         EmbyItem returnItem;
-
-         // Move flat data
-         returnItem.id = std::move(match.Id);
-         returnItem.type = std::move(match.Type);
-         returnItem.name = std::move(match.Name);
-         returnItem.path = std::move(match.Path);
-         returnItem.runTimeTicks = match.RunTimeTicks;
-
-         // Populate nested series data
-         returnItem.series.name = std::move(match.SeriesName);
-         returnItem.series.seasonNum = match.ParentIndexNumber;
-         returnItem.series.episodeNum = match.IndexNumber;
-
-         return returnItem;
-      }
-
-      LogWarning("{} returned no valid results {} {}", __func__, GetTag("Series", seriesName), GetTag(EPISODE, episodeName));
       return std::nullopt;
    }
 
@@ -611,12 +578,36 @@ namespace warp
    bool EmbyApi::EmbyApiImpl::GetPathCacheEmpty() const
    {
       std::shared_lock lock(dataLock_);
-      return pathMap_.empty();
+      return pathToIdCache_.empty();
    }
 
    bool EmbyApi::GetPathCacheEmpty() const
    {
       return pimpl_->GetPathCacheEmpty();
+   }
+
+   std::optional<std::filesystem::path> EmbyApi::EmbyApiImpl::GetItemPath(std::string_view id)
+   {
+      if (!enableCachePaths_)
+      {
+         parent_.LogWarning("{} called but extra caching not enabled", __func__);
+         return std::nullopt;
+      }
+
+      std::shared_lock lock(dataLock_);
+
+      // Look up the item once
+      if (auto it = idToPathCache_.find(id);
+          it != idToPathCache_.end())
+      {
+         return it->second;
+      }
+      return std::nullopt;
+   }
+
+   std::optional<std::filesystem::path> EmbyApi::GetItemPath(std::string_view id)
+   {
+      return pimpl_->GetItemPath(id);
    }
 
    std::optional<std::string> EmbyApi::EmbyApiImpl::GetIdFromPath(const std::filesystem::path& path)
@@ -630,8 +621,8 @@ namespace warp
       std::shared_lock lock(dataLock_);
 
       // Look up the item once
-      if (auto it = pathMap_.find(path);
-          it != pathMap_.end())
+      if (auto it = pathToIdCache_.find(path);
+          it != pathToIdCache_.end())
       {
          return it->second;
       }
@@ -679,8 +670,11 @@ namespace warp
          return;
       }
 
-      EmbyPathMap workingPathMap;
-      workingPathMap.reserve(response.Items.size());
+      EmbyIdToPathMap workingIdToPathCache;
+      workingIdToPathCache.reserve(response.Items.size());
+
+      EmbyPathToIdMap workingPathToIdMap;
+      workingPathToIdMap.reserve(response.Items.size());
 
       std::string localMaxTimestamp;
       for (auto& item : response.Items)
@@ -689,7 +683,8 @@ namespace warp
          if (!item.Path.empty() && !item.Id.empty())
          {
             // Move strings to avoid allocations
-            workingPathMap.emplace(std::move(item.Path), std::move(item.Id));
+            workingIdToPathCache.emplace(item.Id, item.Path);
+            workingPathToIdMap.emplace(item.Path, item.Id);
 
             // Track the newest timestamp
             if (item.DateCreated > localMaxTimestamp)
@@ -699,10 +694,11 @@ namespace warp
          }
       }
 
-      if (!workingPathMap.empty())
+      if (!workingPathToIdMap.empty())
       {
          std::lock_guard lock(dataLock_);
-         pathMap_ = std::move(workingPathMap);
+         idToPathCache_ = std::move(workingIdToPathCache);
+         pathToIdCache_ = std::move(workingPathToIdMap);
          lastSyncTimestamp_ = std::move(localMaxTimestamp);
       }
       else
@@ -827,7 +823,7 @@ namespace warp
             latestUpdateTimestamp = item.DateCreated;
 
          parent_.LogTrace("Incremental update: Path:{} -> Id:{}", item.Path.string(), item.Id);
-         pathMap_.insert_or_assign(std::move(item.Path), std::move(item.Id));
+         pathToIdCache_.insert_or_assign(std::move(item.Path), std::move(item.Id));
       }
 
       if (!latestUpdateTimestamp.empty())

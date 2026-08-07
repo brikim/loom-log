@@ -26,6 +26,7 @@ namespace warp
       [[nodiscard]] bool GetValid() override;
       [[nodiscard]] const std::filesystem::path& GetMediaPath() const;
       [[nodiscard]] std::optional<std::string> GetServerReportedName() override;
+      [[nodiscard]] std::optional<std::string> GetTracearrServerName() const;
       [[nodiscard]] std::optional<std::string> GetLibraryId(std::string_view libraryName) const;
 
       [[nodiscard]] std::optional<PlexSearchResults> GetItemInfoByPathWithToken(std::string_view userToken, const std::filesystem::path& filePath);
