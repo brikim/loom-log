@@ -44,8 +44,6 @@ namespace warp
       std::optional<std::string> showTitle;
       std::optional<int> seasonNumber;
       std::optional<int> episodeNumber;
-      std::string progressMs;
-      std::optional<std::string> totalDurationMs;
       double percentComplete{0.0};
       std::string startedAt;
       std::optional<std::string> stoppedAt;
@@ -65,8 +63,6 @@ namespace warp
             "show_title", &JsonTracearrHistoryItem::showTitle,
             "season_number", &JsonTracearrHistoryItem::seasonNumber,
             "episode_number", &JsonTracearrHistoryItem::episodeNumber,
-            "progress_ms", &JsonTracearrHistoryItem::progressMs,
-            "total_duration_ms", &JsonTracearrHistoryItem::totalDurationMs,
             "percent_complete", &JsonTracearrHistoryItem::percentComplete,
             "started_at", &JsonTracearrHistoryItem::startedAt,
             "stopped_at", &JsonTracearrHistoryItem::stoppedAt,

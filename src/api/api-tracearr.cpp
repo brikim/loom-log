@@ -149,15 +149,6 @@ namespace warp
             continue;
          }
 
-         int progressMs = 0;
-         auto [ptr, ec] = std::from_chars(item.progressMs.data(), item.progressMs.data() + item.progressMs.size(), progressMs);
-
-         int totalDurationMs = 0;
-         if (item.totalDurationMs.has_value())
-         {
-            auto [ptr, ec] = std::from_chars(item.totalDurationMs->data(), item.totalDurationMs->data() + item.totalDurationMs->size(), totalDurationMs);
-         }
-
          auto id = std::format("{}-{}-{}-{}-{}",
             item.serverName,
             item.mediaTitle,
@@ -196,8 +187,6 @@ namespace warp
             .showTitle = std::move(item.showTitle),
             .seasonNumber = item.seasonNumber,
             .episodeNumber = item.episodeNumber,
-            .progressMs = progressMs,
-            .totalDurationMs = totalDurationMs,
             .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete)),
             .watchTime = item.stoppedAt.has_value() ? std::move(item.stoppedAt.value()) : std::move(item.startedAt),
             .watched = item.watched,

@@ -24,8 +24,6 @@ namespace warp
       std::optional<std::string> showTitle;
       std::optional<int32_t> seasonNumber;
       std::optional<int32_t> episodeNumber;
-      int32_t progressMs;
-      std::optional<int32_t> totalDurationMs;
       int32_t playbackPercentage{0};
       std::string watchTime;
       bool watched{false};
