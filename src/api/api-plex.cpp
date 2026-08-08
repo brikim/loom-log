@@ -93,6 +93,7 @@ namespace warp
       void RebuildUserTokenMap();
 
       void CheckPathMap();
+      bool CheckHttpSuccess(const httplib::Result& res, std::string_view function);
 
       void UpdateCacheRequired(bool forceRefresh);
       void UpdateCacheCollections(bool forceRefresh);
@@ -607,6 +608,24 @@ namespace warp
       return SetWatchedByUserToken(userToken, ratingKey);
    }
 
+   bool PlexApi::PlexApiImpl::CheckHttpSuccess(const httplib::Result& res, std::string_view function)
+   {
+      if (res.error() != httplib::Error::Success
+          || res->status >= VALID_HTTP_RESPONSE_MAX)
+      {
+         if (res->status >= VALID_HTTP_RESPONSE_MAX)
+         {
+            parent_.LogWarning("{} - HTTP Error: {} {}", function, res->status, res->reason);
+         }
+         else
+         {
+            parent_.LogWarning("{} - Connection Error: {}", function, httplib::to_string(res.error()));
+         }
+         return false;
+      }
+      return true;
+   }
+
    void PlexApi::PlexApiImpl::RebuildLibraryMap()
    {
       parent_.LogTrace("Rebuilding Library Map");
@@ -840,25 +859,8 @@ namespace warp
    {
       parent_.LogTrace("Rebuilding User Token Map");
 
-      auto checkHttpSuccess = [this](const httplib::Result& res, std::string_view function) {
-         if (res.error() != httplib::Error::Success
-             || res->status >= VALID_HTTP_RESPONSE_MAX)
-         {
-            if (res->status >= VALID_HTTP_RESPONSE_MAX)
-            {
-               parent_.LogWarning("{} - HTTP Error: {} {}", function, res->status, res->reason);
-            }
-            else
-            {
-               parent_.LogWarning("{} - Connection Error: {}", function, httplib::to_string(res.error()));
-            }
-            return false;
-         }
-         return true;
-      };
-
       auto res = plexTvClient_.Get(API_PLEXTV_RESOURCES, plexTvHeaders_);
-      if (checkHttpSuccess(res, __func__) == false)
+      if (CheckHttpSuccess(res, __func__) == false)
       {
          parent_.LogWarning("{} - Failed to fetch plex tv resources. Keeping stale data.", __func__);
          return;
@@ -894,7 +896,7 @@ namespace warp
 
       // Now using the client id fetch the shared server to retrieve user tokens
       auto serverRes = plexTvClient_.Get(std::format("{}/{}/shared_servers", API_PLEXTV_SERVERS, clientId), plexTvHeaders_);
-      if (checkHttpSuccess(serverRes, __func__) == false)
+      if (CheckHttpSuccess(serverRes, __func__) == false)
       {
          parent_.LogWarning("{} - Failed to fetch shared servers from plex tv resources. Keeping stale data.", __func__);
          return;
@@ -929,7 +931,7 @@ namespace warp
 
       // Now fetch the admin user to get the token to add to the working set of tokens.
       auto adminUserRes = plexTvClient_.Get(API_PLEXTV_ADMIN_USER, plexTvHeaders_);
-      if (checkHttpSuccess(adminUserRes, __func__) == false)
+      if (CheckHttpSuccess(adminUserRes, __func__) == false)
       {
          parent_.LogWarning("{} - Admin token fetch failed, keeping stale User data", __func__);
          return;
