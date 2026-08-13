@@ -144,19 +144,22 @@ namespace warp
       for (auto& item : serverResponse.items)
       {
          // For now syncing will only work with movies and tv episodes. Ignore other media types for now.
-         if (item.mediaType != TRACEARR_MEDIA_TYPE_MOVIE && item.mediaType != TRACEARR_MEDIA_TYPE_EPISODE && item.state != TRACEARR_STOPPED)
+         // Also only process items that are in the stopped state.
+         bool isValidMedia = (item.mediaType == TRACEARR_MEDIA_TYPE_MOVIE || item.mediaType == TRACEARR_MEDIA_TYPE_EPISODE);
+         bool isStopped = (item.state == TRACEARR_STOPPED);
+         if (!isValidMedia || !isStopped)
          {
             continue;
          }
 
-         auto id = std::format("{}-{}-{}-{}-{}",
+         auto fullName = item.showTitle.has_value()
+            ? std::format("{} - {}", item.showTitle.value(), item.mediaTitle)
+            : item.mediaTitle;
+         auto id = std::format("{}-{}-{}-{}",
+            item.user.userName,
             item.serverName,
-            item.mediaTitle,
             item.mediaType,
-            item.showTitle.value_or(""),
-            item.user.userName);
-
-         auto fullName = item.showTitle.has_value() ? std::format("{} - {}", item.showTitle.value(), item.mediaTitle) : item.mediaTitle;
+            fullName);
 
          TracearrServerType serverType;
          if (item.serverType == "plex")
