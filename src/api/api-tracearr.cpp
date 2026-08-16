@@ -147,50 +147,43 @@ namespace warp
          // Also only process items that are in the stopped state.
          bool isValidMedia = (item.mediaType == TRACEARR_MEDIA_TYPE_MOVIE || item.mediaType == TRACEARR_MEDIA_TYPE_EPISODE);
          bool isStopped = (item.state == TRACEARR_STOPPED);
-         if (!isValidMedia || !isStopped)
+         if (!isValidMedia || !isStopped || !item.percentComplete.has_value())
          {
+            continue;
+         }
+
+         static constexpr auto parseServerType = [](const std::string_view type) -> std::optional<TracearrServerType> {
+            if (type == "plex") return TracearrServerType::PLEX;
+            if (type == "emby") return TracearrServerType::EMBY;
+            if (type == "jellyfin") return TracearrServerType::JELLYFIN;
+            return std::nullopt;
+         };
+         auto serverType = parseServerType(item.serverType);
+         if (serverType.has_value() == false)
+         {
+            LogWarning("{} - Unknown server type: {}. Skipping item.", __func__, item.serverType);
             continue;
          }
 
          auto fullName = item.showTitle.has_value()
             ? std::format("{} - {}", item.showTitle.value(), item.mediaTitle)
             : item.mediaTitle;
-         auto id = std::format("{}-{}-{}-{}",
+         auto id = std::format("{}-{}-{}",
             item.user.userName,
             item.serverName,
-            item.mediaType,
-            fullName);
-
-         TracearrServerType serverType;
-         if (item.serverType == "plex")
-         {
-            serverType = TracearrServerType::PLEX;
-         }
-         else if (item.serverType == "emby")
-         {
-            serverType = TracearrServerType::EMBY;
-         }
-         else if (item.serverType == "jellyfin")
-         {
-            serverType = TracearrServerType::JELLYFIN;
-         }
-         else
-         {
-            LogWarning("{} - Unknown server type: {}. Skipping item.", __func__, item.serverType);
-            continue;
-         }
+            item.serverRatingKey);
 
          returnResponse.items.emplace_back(TracearrHistoryItem{
             .id = std::move(id),
             .serverName = std::move(item.serverName),
-            .serverType = serverType,
+            .serverType = serverType.value(),
             .fullName = std::move(fullName),
             .mediaTitle = std::move(item.mediaTitle),
             .mediaType = std::move(item.mediaType),
             .showTitle = std::move(item.showTitle),
             .seasonNumber = item.seasonNumber,
             .episodeNumber = item.episodeNumber,
-            .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete)),
+            .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete.value())),
             .watchTime = item.stoppedAt.has_value() ? std::move(item.stoppedAt.value()) : std::move(item.startedAt),
             .watched = item.watched,
             .serverRatingKey = std::move(item.serverRatingKey),

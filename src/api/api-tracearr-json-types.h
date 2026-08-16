@@ -44,7 +44,7 @@ namespace warp
       std::optional<std::string> showTitle;
       std::optional<int> seasonNumber;
       std::optional<int> episodeNumber;
-      double percentComplete{0.0};
+      std::optional<double> percentComplete;
       std::string startedAt;
       std::optional<std::string> stoppedAt;
       bool watched{false};
