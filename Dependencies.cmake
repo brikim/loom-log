@@ -1,7 +1,7 @@
 # Version Definitions
 set(SPDLOG_VERSION  v1.17.0)
 set(GLAZE_VERSION   v8.0.0)
-set(HTTPLIB_VERSION v0.52.0)
+set(HTTPLIB_VERSION v0.53.1)
 set(LIBCRON_VERSION v1.3.3)
 set(PUGIXML_VERSION v1.16)
 
