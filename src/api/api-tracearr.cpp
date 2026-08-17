@@ -147,7 +147,7 @@ namespace warp
          // Also only process items that are in the stopped state.
          bool isValidMedia = (item.mediaType == TRACEARR_MEDIA_TYPE_MOVIE || item.mediaType == TRACEARR_MEDIA_TYPE_EPISODE);
          bool isStopped = (item.state == TRACEARR_STOPPED);
-         if (!isValidMedia || !isStopped || !item.percentComplete.has_value())
+         if (!isValidMedia || !isStopped)
          {
             continue;
          }
@@ -183,7 +183,7 @@ namespace warp
             .showTitle = std::move(item.showTitle),
             .seasonNumber = item.seasonNumber,
             .episodeNumber = item.episodeNumber,
-            .playbackPercentage = static_cast<int32_t>(std::lround(item.percentComplete.value())),
+            .playbackPercentage = item.percentComplete.has_value() ? std::make_optional(static_cast<int32_t>(std::lround(item.percentComplete.value()))) : std::nullopt,
             .watchTime = item.stoppedAt.has_value() ? std::move(item.stoppedAt.value()) : std::move(item.startedAt),
             .watched = item.watched,
             .serverRatingKey = std::move(item.serverRatingKey),
