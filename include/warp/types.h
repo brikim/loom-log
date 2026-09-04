@@ -10,6 +10,7 @@ namespace warp
 
    enum class ApiType
    {
+      UNKNOWN,
       PLEX,
       EMBY,
       TAUTULLI,

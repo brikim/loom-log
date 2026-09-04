@@ -142,14 +142,33 @@ namespace warp
          return it != container.end() ? it->get() : nullptr;
       }
 
+      template <typename T>
+      [[nodiscard]] T* FindTracearrApi(const std::vector<std::unique_ptr<T>>& container, std::string_view name) const
+      {
+         auto it = std::ranges::find_if(container, [name](const auto& api) {
+            return api->GetTracearrServerName() == name;
+         });
+         return it != container.end() ? it->get() : nullptr;
+      }
+
       PlexApi* GetPlexApi(std::string_view name) const
       {
          return FindApi(plexApis_, name);
       }
 
+      PlexApi* GetTracearrPlexApi(std::string_view tracearrName) const
+      {
+         return FindTracearrApi(plexApis_, tracearrName);
+      }
+
       EmbyApi* GetEmbyApi(std::string_view name) const
       {
          return FindApi(embyApis_, name);
+      }
+
+      EmbyApi* GetTracearrEmbyApi(std::string_view tracearrName) const
+      {
+         return FindTracearrApi(embyApis_, tracearrName);
       }
 
       TautulliApi* GetTautulliApi(std::string_view name) const
@@ -208,9 +227,19 @@ namespace warp
       return pimpl_->GetPlexApi(name);
    }
 
+   PlexApi* ApiManager::GetTracearrPlexApi(std::string_view tracearrName) const
+   {
+      return pimpl_->GetTracearrPlexApi(tracearrName);
+   }
+
    EmbyApi* ApiManager::GetEmbyApi(std::string_view name) const
    {
       return pimpl_->GetEmbyApi(name);
+   }
+
+   EmbyApi* ApiManager::GetTracearrEmbyApi(std::string_view tracearrName) const
+   {
+      return pimpl_->GetTracearrEmbyApi(tracearrName);
    }
 
    TautulliApi* ApiManager::GetTautulliApi(std::string_view name) const

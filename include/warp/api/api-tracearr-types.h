@@ -13,9 +13,16 @@ namespace warp
       JELLYFIN
    };
 
+   struct TracearrHistoryUser
+   {
+      std::string id;
+      std::string name;
+   };
+
    struct TracearrHistoryItem
    {
       std::string id;
+      std::string serverId;
       std::string serverName;
       TracearrServerType serverType;
       std::string fullName;
@@ -28,11 +35,27 @@ namespace warp
       std::string watchTime;
       bool watched{false};
       std::string serverRatingKey;
-      std::string user;
+      TracearrHistoryUser user;
    };
 
    struct TracearrHistoryItems
    {
       std::vector<TracearrHistoryItem> items;
+   };
+
+   struct TracearrUserAccount
+   {
+      std::string serverId;
+      std::optional<TracearrServerType> serverType;
+      std::string serverUserId;
+      std::string externalUserId;
+      std::string externalUserName;
+   };
+
+   struct TracearrUser
+   {
+      std::string id;
+      std::string name;
+      std::vector<TracearrUserAccount> accounts;
    };
 }

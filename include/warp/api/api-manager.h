@@ -50,7 +50,9 @@ namespace warp
       void Shutdown();
 
       [[nodiscard]] PlexApi* GetPlexApi(std::string_view name) const;
+      [[nodiscard]] PlexApi* GetTracearrPlexApi(std::string_view tracearrName) const;
       [[nodiscard]] EmbyApi* GetEmbyApi(std::string_view name) const;
+      [[nodiscard]] EmbyApi* GetTracearrEmbyApi(std::string_view tracearrName) const;
       [[nodiscard]] TautulliApi* GetTautulliApi(std::string_view name) const;
       [[nodiscard]] JellystatApi* GetJellystatApi(std::string_view name) const;
       [[nodiscard]] TracearrApi* GetTracearrApi() const;

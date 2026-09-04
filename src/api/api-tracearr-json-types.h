@@ -9,8 +9,18 @@ namespace warp
 {
    struct JsonHealthServers
    {
+      std::string id;
       std::string name;
       std::string type;
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+            "id", &JsonHealthServers::id,
+            "name", &JsonHealthServers::name,
+            "type", &JsonHealthServers::type
+         );
+      };
    };
 
    struct JsonHealthResponse
@@ -19,16 +29,27 @@ namespace warp
       std::string version;
       std::string timestamp;
       std::vector<JsonHealthServers> servers;
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+            "status", &JsonHealthResponse::status,
+            "version", &JsonHealthResponse::version,
+            "timestamp", &JsonHealthResponse::timestamp,
+            "servers", &JsonHealthResponse::servers
+         );
+      };
    };
 
    struct JsonTracearrHistoryUser
    {
+      std::string id;
       std::string userName;
 
       struct glaze
       {
-         // Glaze knows how to handle chrono types automatically
          static constexpr auto value = glz::object(
+            "id", &JsonTracearrHistoryUser::id,
             "username", &JsonTracearrHistoryUser::userName
          );
       };
@@ -36,6 +57,7 @@ namespace warp
 
    struct JsonTracearrHistoryItem
    {
+      std::string serverId;
       std::string serverName;
       std::string serverType;
       std::string state;
@@ -55,6 +77,7 @@ namespace warp
       {
          // Glaze knows how to handle chrono types automatically
          static constexpr auto value = glz::object(
+            "server_id", &JsonTracearrHistoryItem::serverId,
             "server_name", &JsonTracearrHistoryItem::serverName,
             "server_type", &JsonTracearrHistoryItem::serverType,
             "state", &JsonTracearrHistoryItem::state,
@@ -82,6 +105,54 @@ namespace warp
          // Glaze knows how to handle chrono types automatically
          static constexpr auto value = glz::object(
             "data", &JsonTracearrHistoryItems::items
+         );
+      };
+   };
+
+   struct JsonTracearrUserAccount
+   {
+      std::string serverId;
+      std::string serverType;
+      std::string serverUserId;
+      std::string externalUserId;
+      std::string externalUserName;
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+               "server_id", &JsonTracearrUserAccount::serverId,
+               "server_type", &JsonTracearrUserAccount::serverType,
+               "server_user_id", &JsonTracearrUserAccount::serverUserId,
+               "external_user_id", &JsonTracearrUserAccount::externalUserId,
+               "username", &JsonTracearrUserAccount::externalUserName
+         );
+      };
+   };
+
+   struct JsonTracearrUser
+   {
+      std::string id;
+      std::string name;
+      std::vector<JsonTracearrUserAccount> accounts;
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+               "id", &JsonTracearrUser::id,
+               "username", &JsonTracearrUser::name,
+               "accounts", &JsonTracearrUser::accounts
+         );
+      };
+   };
+
+   struct JsonTracearrUsers
+   {
+      std::vector<JsonTracearrUser> users;
+
+      struct glaze
+      {
+         static constexpr auto value = glz::object(
+            "data", &JsonTracearrUsers::users
          );
       };
    };
